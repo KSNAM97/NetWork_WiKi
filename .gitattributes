@@ -1,0 +1,11 @@
+# ========================================================
+# Cisco CLI files mapping (Network & Infra)
+# ========================================================
+
+# 시스코 설정 파일(.cfg, .conf)들을 인프라(HCL) 언어로 인식시키기
+*.cfg linguist-language=HCL
+*.conf linguist-language=HCL
+
+# 시스코 스크립트나 명령어가 담긴 텍스트 파일들을 Shell로 인식시키기
+*.txt linguist-language=Shell
+*.ios linguist-language=HCL
