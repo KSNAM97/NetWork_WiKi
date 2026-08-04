@@ -1,27 +1,49 @@
 # ========================================================
-# GitHub Linguist Language Overrides for Profile Stats
+# 1. 마크다운(Markdown) 기본 통계 제외
+# ========================================================
+*.md linguist-detectable=false
+
+# ========================================================
+# 2. 폴더별 언어 강제 매핑 (인프라 & 데브옵스 스택)
 # ========================================================
 
-# 1. 마크다운 분석 대상 강제 포함 (기본 제외 방지)
-*.md linguist-detectable=true
-*.md linguist-vendored=false
-*.md linguist-documentation=false
+# 1) LINUX & 2) Shell Script -> Shell (리눅스 쉘)
+*LINUX*/** linguist-language=Shell
+*LINUX*/** linguist-detectable=true
+*Shell*Script*/** linguist-language=Shell
+*Shell*Script*/** linguist-detectable=true
 
-# 2. SVG 이미지를 Shell로 강제 인식 (비중 뻥튀기)
-*.svg linguist-language=Shell
+# 3) HTML, DB -> HTML (DB 쿼리가 많다면 SQL로 변경 가능)
+*HTML*DB*/** linguist-language=HTML
+*HTML*DB*/** linguist-detectable=true
 
-# 3. Cisco 설정 파일 매핑 (네트워크/인프라 비중 상승)
-*.cfg linguist-language=HCL
-*.conf linguist-language=HCL
-*.txt linguist-language=Shell
-*.ios linguist-language=HCL
+# 4) Docker -> Dockerfile (도커 공식 언어)
+*Docker*/** linguist-language=Dockerfile
+*Docker*/** linguist-detectable=true
 
-# 4. 특정 폴더 기반 매핑 (Network vs System 폴더 구조 분리)
-# 'Network'라는 단어가 포함된 폴더 안의 마크다운은 HCL(테라폼)로 인식
-*Network*/**/*.md linguist-language=HCL
+# 5) Kuberneties -> Go (쿠버네티스 생태계의 핵심 언어인 Go로 매핑!)
+*Kuberneties*/** linguist-language=Go
+*Kuberneties*/** linguist-detectable=true
 
-# 'System'이라는 단어가 포함된 폴더 안의 마크다운은 Shell(쉘 스크립트)로 인식
-*System*/**/*.md linguist-language=Shell
+# 6) Ansible -> Python (앤서블의 기반 언어)
+*Ansible*/** linguist-language=Python
+*Ansible*/** linguist-detectable=true
 
-# 5. 불필요한 설정 파일 통계 제외 (옵시디언 설정 폴더 무시)
+# 7) AWS -> Python (AWS 자동화 스크립트 Boto3 느낌으로!)
+*AWS*/** linguist-language=Python
+*AWS*/** linguist-detectable=true
+
+# 8) Terraform -> HCL (테라폼 공식 언어)
+*Terraform*/** linguist-language=HCL
+*Terraform*/** linguist-detectable=true
+
+# (기존 Network & System 폴더 유지)
+*Network*/** linguist-language=HCL
+*Network*/** linguist-detectable=true
+*System*/** linguist-language=Shell
+*System*/** linguist-detectable=true
+
+# ========================================================
+# 3. 불필요한 파일 및 설정 폴더 제외
+# ========================================================
 .obsidian/** linguist-vendored
