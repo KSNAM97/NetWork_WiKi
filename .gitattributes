@@ -1,49 +1,59 @@
 # ========================================================
-# 1. 마크다운(Markdown) 기본 통계 제외
+# 1. 기본 설정: 모든 마크다운 기본 통계 제외
+# (반드시 맨 위에 작성해야 아래 규칙들이 이를 덮어씁니다)
 # ========================================================
+*.md linguist-language=Markdown
 *.md linguist-detectable=false
 
 # ========================================================
-# 2. 폴더별 언어 강제 매핑 (인프라 & 데브옵스 스택)
+# 2. 제목(파일 이름) 기반 강제 매핑
+# 파일명 앞뒤로 *를 붙여 특정 단어가 포함된 파일을 찾습니다.
 # ========================================================
 
-# 1) LINUX & 2) Shell Script -> Shell (리눅스 쉘)
-*LINUX*/** linguist-language=Shell
-*LINUX*/** linguist-detectable=true
-*Shell*Script*/** linguist-language=Shell
-*Shell*Script*/** linguist-detectable=true
+# 이름에 'Linux' 또는 'Shell'이 포함된 파일 -> Shell
+*Linux*.md linguist-language=Shell
+*Linux*.md linguist-detectable=true
+*Shell*.md linguist-language=Shell
+*Shell*.md linguist-detectable=true
 
-# 3) HTML, DB -> HTML (DB 쿼리가 많다면 SQL로 변경 가능)
-*HTML*DB*/** linguist-language=HTML
-*HTML*DB*/** linguist-detectable=true
+# 이름에 'HTML' 또는 'DB'가 포함된 파일 -> HTML
+*HTML*.md linguist-language=HTML
+*HTML*.md linguist-detectable=true
+*DB*.md linguist-language=HTML
+*DB*.md linguist-detectable=true
 
-# 4) Docker -> Dockerfile (도커 공식 언어)
-*Docker*/** linguist-language=Dockerfile
-*Docker*/** linguist-detectable=true
+# 이름에 'Docker'가 포함된 파일 -> Dockerfile
+*Docker*.md linguist-language=Dockerfile
+*Docker*.md linguist-detectable=true
 
-# 5) Kuberneties -> Go (쿠버네티스 생태계의 핵심 언어인 Go로 매핑!)
-*Kuberneties*/** linguist-language=Go
-*Kuberneties*/** linguist-detectable=true
+# 이름에 'Kuberneties'가 포함된 파일 -> Go
+*Kuberneties*.md linguist-language=Go
+*Kuberneties*.md linguist-detectable=true
 
-# 6) Ansible -> Python (앤서블의 기반 언어)
-*Ansible*/** linguist-language=Python
-*Ansible*/** linguist-detectable=true
+# 이름에 'Ansible'이 포함된 파일 -> Python
+*Ansible*.md linguist-language=Python
+*Ansible*.md linguist-detectable=true
 
-# 7) AWS -> Python (AWS 자동화 스크립트 Boto3 느낌으로!)
-*AWS*/** linguist-language=Python
-*AWS*/** linguist-detectable=true
+# 이름에 'AWS'가 포함된 파일 -> Python
+*AWS*.md linguist-language=Python
+*AWS*.md linguist-detectable=true
 
-# 8) Terraform -> HCL (테라폼 공식 언어)
-*Terraform*/** linguist-language=HCL
-*Terraform*/** linguist-detectable=true
+# 이름에 'Terraform' 또는 'Network'가 포함된 파일 -> HCL
+*Terraform*.md linguist-language=HCL
+*Terraform*.md linguist-detectable=true
+*Network*.md linguist-language=HCL
+*Network*.md linguist-detectable=true
 
-# (기존 Network & System 폴더 유지)
-*Network*/** linguist-language=HCL
-*Network*/** linguist-detectable=true
-*System*/** linguist-language=Shell
-*System*/** linguist-detectable=true
+# 이름에 'System'이 포함된 파일 -> Shell
+*System*.md linguist-language=Shell
+*System*.md linguist-detectable=true
 
 # ========================================================
-# 3. 불필요한 파일 및 설정 폴더 제외
+# 3. 옵시디언(Obsidian) 설정 파일 포함
 # ========================================================
-.obsidian/** linguist-vendored
+.obsidian/**/*.css linguist-language=CSS
+.obsidian/**/*.css linguist-detectable=true
+.obsidian/**/*.js linguist-language=JavaScript
+.obsidian/**/*.js linguist-detectable=true
+.obsidian/**/*.json linguist-language=JSON
+.obsidian/**/*.json linguist-detectable=true
