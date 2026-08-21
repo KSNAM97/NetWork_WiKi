@@ -8,13 +8,16 @@
 👉 **[NetWork_WiKi 보러 가기](https://github.com/KSNAM97/NetWork_WiKi/wiki)**
 
 ---
+## 🗂️ 주요 학습 내용
 
-## 🗂️ 주요 학습 내용 (예시)
-위키에서는 주로 아래와 같은 주제들을 다루고 있습니다.
-* **Network Basics:** OSI 7계층, TCP/IP 모델
-* **Protocols:** HTTP, DNS, DHCP, FTP 등
-* **Routing & Switching:** 라우팅 알고리즘, 스위치 동작 원리
-* **Security:** 네트워크 보안 기초, 방화벽
+**기초 네트워크**
+Hub · Switch · Router / Switch 동작원리 / VLAN / Switchport Mode / Trunk / Inter-VLAN / IP Header / TCP · UDP / IPv4 주소 / Static Route / RIP / NAT & DHCP / NTP & SSH
+
+**고급 — Router**
+Frame Relay / EIGRP / OSPF / 경로 필터링 / Redistribute / ACL / VPN
+
+**고급 — Switch**
+VTP / Spanning Tree / Multi-Layer Switch / EtherChannel / Switch 보안 / Gateway 이중화
 
 ---
 
