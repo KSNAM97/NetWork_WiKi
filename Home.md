@@ -22,27 +22,28 @@ CISCO 네트워크 학습 내용을 정리한 위키입니다.
 | 10 | [Static Route](Static-Route) | 정적 라우팅, Default Route |
 | 11 | [RIP](RIP) | RIPv1/v2, 인증, Triggered, Route Poison |
 | 12 | [NAT & DHCP](NAT-DHCP) | Static/Dynamic NAT, PAT, DHCP 서버·클라이언트 |
-| 13 | [NTP & SSH](NTP-SSH) | 시간 동기화, 암호화 원격 접속 |
+| 13 | [Router 기본](Router-Basic) | Router 모드, Interface, Cable, Password, CDP |
+| 14 | [NTP & SSH](NTP-SSH) | 시간 동기화, 암호화 원격 접속 |
 
 ### 고급 네트워크 — Router
 
 | # | 페이지 | 내용 |
 |---|--------|------|
-| 14 | [Frame Relay](Frame-Relay) | WAN 기술, Sub-interface, DLCI |
-| 15 | [EIGRP](EIGRP) | EIGRP 설정, Named Mode (IOS XE 16.x+), BFD, SHA-256 인증 |
-| 16 | [OSPF](OSPF) | OSPF 설정, Area, DR/BDR, Fast Hello, TTL Security, SR-TE (IOS XE 17.x) |
-| 17 | [경로 필터링](Route-Filtering) | Distribute-list, Prefix-list, Route-map |
-| 18 | [Redistribute](Redistribute) | 라우팅 프로토콜 간 재분배 |
-| 19 | [ACL](ACL) | Standard / Extended / Object-Group ACL, TCP Intercept |
-| 20 | [VPN](VPN) | GRE Tunnel, IPsec, DMVPN |
+| 15 | [Frame Relay](Frame-Relay) | WAN 기술, Sub-interface, DLCI |
+| 16 | [EIGRP](EIGRP) | EIGRP 설정, Named Mode (IOS XE 16.x+), BFD, SHA-256 인증 |
+| 17 | [OSPF](OSPF) | OSPF 설정, Area, DR/BDR, Fast Hello, TTL Security, SR-TE (IOS XE 17.x) |
+| 18 | [경로 필터링](Route-Filtering) | Distribute-list, Prefix-list, Route-map |
+| 19 | [Redistribute](Redistribute) | 라우팅 프로토콜 간 재분배 |
+| 20 | [ACL](ACL) | Standard / Extended / Object-Group ACL, TCP Intercept |
+| 21 | [VPN](VPN) | GRE Tunnel, IPsec, DMVPN |
 
 ### 고급 네트워크 — Switch
 
 | # | 페이지 | 내용 |
 |---|--------|------|
-| 21 | [VTP](VTP) | VLAN Trunking Protocol |
-| 22 | [Spanning Tree](Spanning-Tree) | STP, RSTP, MSTP, STP 보호 기술 |
-| 23 | [Multi-Layer Switch](Multi-Layer-Switch) | L3 스위치를 이용한 라우팅 |
-| 24 | [EtherChannel](EtherChannel) | LACP, PAgP를 이용한 링크 집합 |
-| 25 | [Switch 보안](Switch-Security) | Port Security, Storm Control, SPAN |
-| 26 | [Gateway 이중화](Gateway-Redundancy) | HSRP v1/v2, VRRP, GLBP |
+| 22 | [VTP](VTP) | VLAN Trunking Protocol |
+| 23 | [Spanning Tree](Spanning-Tree) | STP, RSTP, MSTP, STP 보호 기술 |
+| 24 | [Multi-Layer Switch](Multi-Layer-Switch) | L3 스위치를 이용한 라우팅 |
+| 25 | [EtherChannel](EtherChannel) | LACP, PAgP를 이용한 링크 집합 |
+| 26 | [Switch 보안](Switch-Security) | Port Security, Storm Control, SPAN |
+| 27 | [Gateway 이중화](Gateway-Redundancy) | HSRP v1/v2, VRRP, GLBP |
