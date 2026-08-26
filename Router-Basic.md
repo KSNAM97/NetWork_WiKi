@@ -122,7 +122,7 @@ Router(config-line)# login
 
 Telnet(TCP 23) / SSH(TCP 22)를 통한 원격 접속 시 적용
 
-- Router: 0 ~ 4 (5개 포트), Switch: 0 ~ 15 (16개 포트)
+- Router: 0-4 (5개 포트), Switch: 0-15 (16개 포트)
 
 ```
 Router(config)# line vty 0 4
