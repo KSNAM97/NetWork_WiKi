@@ -68,7 +68,7 @@ Access Mode와 달리 Trunk Mode에서는 Ethernet Frame에 **4Byte Tag**가 추
 | EtherType | 16bit | `0x8100` — 802.1Q임을 표기 |
 | Priority | 3bit | QoS 우선순위 (8단계) |
 | CFI | 1bit | 0=Ethernet, 1=Token-ring |
-| VLAN-ID | 12bit | VLAN 번호 (0~4095) |
+| VLAN-ID | 12bit | VLAN 번호 (0-4095) |
 
 ---
 

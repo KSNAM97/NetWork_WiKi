@@ -19,7 +19,7 @@
 
 | 종류 | 범위 | 비고 |
 |------|------|------|
-| Standard VLAN | 1 ~ 1005 | 1, 1002~1005는 예약 VLAN |
+| Standard VLAN | 1 ~ 1005 | 1, 1002-1005는 예약 VLAN |
 | Extended VLAN | 1006 ~ 4094 | 장비 시리즈/IOS에 따라 지원 여부 다름 |
 | Default VLAN | 1 | 모든 포트가 기본적으로 속하는 VLAN |
 

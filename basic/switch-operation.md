@@ -478,4 +478,4 @@ Switch(config-mst)# instance 1 vlan 10,20
 Switch(config-mst)# instance 2 vlan 30,40
 ```
 
-> Rapid-PVST+는 기존 PVST+와 달리 Listening 단계 없이 **Blocking → Learning → Forwarding** 전이가 1~2초 내 완료 (PortFast 없이도 빠른 수렴)
+> Rapid-PVST+는 기존 PVST+와 달리 Listening 단계 없이 **Blocking → Learning → Forwarding** 전이가 1-2초 내 완료 (PortFast 없이도 빠른 수렴)

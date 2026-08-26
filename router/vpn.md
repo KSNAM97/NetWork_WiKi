@@ -141,7 +141,7 @@ R# show ip nhrp
 
 ## CBAC (Context-Based Access Control)
 
-IOS 12.x~15.x 시대의 **Stateful Firewall** 기능 — Layer 7까지 검사하여 동적 ACL 구멍 생성
+IOS 12.x-15.x 시대의 **Stateful Firewall** 기능 — Layer 7까지 검사하여 동적 ACL 구멍 생성
 
 - `ip inspect`: 세션 State Table 관리
 - TCP 세션: 3600초, UDP: 30초, ICMP: 10초 타임아웃

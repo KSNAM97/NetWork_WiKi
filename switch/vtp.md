@@ -94,7 +94,7 @@ Phase 2 자료까지는 VTPv1/v2가 기준. IOS XE 16.x 이상 Catalyst에서 **
 | 항목 | VTPv1/v2 (IOS 15.x) | VTPv3 (IOS XE 16.x+) |
 |------|---------------------|----------------------|
 | Primary Server | 개념 없음 (Server 모드면 전파) | **Primary Server 명시 지정** |
-| VLAN 범위 | 1~1005 | **1~4094 (Extended VLAN 포함)** |
+| VLAN 범위 | 1-1005 | **1-4094 (Extended VLAN 포함)** |
 | Private VLAN | 미지원 | **지원** |
 | MST 정보 전파 | 미지원 | **지원** |
 | 패스워드 암호화 | 평문 | **암호화 저장** |

@@ -21,7 +21,7 @@
 | **Forwarding** | 정상 동작 | O | O |
 | **Disabled** | 관리자가 비활성화 | X | X |
 
-> **Blocking → Forwarding 전환 시간**: 기본 30~50초
+> **Blocking → Forwarding 전환 시간**: 기본 30-50초
 
 ---
 
@@ -70,7 +70,7 @@ SW(config-if)# spanning-tree vlan [VLAN] cost [값]
 ### Port Priority 조정
 
 ```
-SW(config-if)# spanning-tree vlan [VLAN] port-priority [0~240, 기본 128]
+SW(config-if)# spanning-tree vlan [VLAN] port-priority [0-240, 기본 128]
 ```
 
 ---
@@ -87,7 +87,7 @@ SW(config-if)# spanning-tree vlan [VLAN] port-priority [0~240, 기본 128]
 
 | 항목 | STP (802.1D) | RSTP (802.1W) |
 |------|-------------|----------------|
-| 수렴 시간 | 30~50초 | **1~2초** |
+| 수렴 시간 | 30-50초 | **1-2초** |
 | 포트 상태 수 | 5개 | 3개 |
 
 ### RSTP 포트 상태
@@ -179,7 +179,7 @@ IOS XE 16.x 이상에서는 **RSTP가 기본 STP 모드**. IOS 15.x Phase 2 자�
 
 | 항목 | Classic STP (IOS 15.x) | RSTP / MSTP (IOS XE 16.x+) |
 |------|------------------------|----------------------------|
-| 수렴 시간 | 30~50초 | **1~2초** |
+| 수렴 시간 | 30-50초 | **1-2초** |
 | 포트 상태 | Blocking/Listening/Learning/Forwarding | Discarding/Learning/Forwarding |
 | Proposal/Agreement | 없음 | **있음 (빠른 전환)** |
 | 기본 모드 | STP (pvst) | **rapid-pvst** |
