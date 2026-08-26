@@ -1,0 +1,271 @@
+# RIP (Routing Information Protocol)
+
+- Distance Vector 라우팅 프로토콜
+- Protocol 번호: **UDP 520**
+- AD (Administrative Distance): **120**
+- Metric: **Hop-count** (최대 15, 16 = 도달 불가)
+
+---
+
+## RIPv1 vs RIPv2
+
+| 항목 | RIPv1 | RIPv2 |
+|------|-------|-------|
+| 클래스 | Classful | Classless |
+| Subnet Mask | 업데이트에 미포함 | 포함 |
+| 전송 방식 | Broadcast `255.255.255.255` | Multicast `224.0.0.9` |
+| VLSM/CIDR | 미지원 | 지원 |
+| 인증 | 미지원 | Text / MD5 지원 |
+| auto-summary | 기본 활성 | 기본 활성 (비활성 권장) |
+
+> ⚠️ RIPv1은 Classful이라 서브넷 마스크를 업데이트에 포함하지 않음 → VLSM 환경에서 사용 불가
+
+---
+
+## RIPv1 설정
+
+```
+! RIP Process 시작 — 클래스 경계 기반 네트워크 광고
+router rip
+ version 1
+ network 13.0.0.0    ! 13.x.x.x 범위 인터페이스 광고 (클래스 A 전체)
+```
+
+### RIPv1 설정 예시
+
+```
+# R1
+router rip
+ version 1
+ network 13.0.0.0
+!
+
+# R2
+router rip
+ version 1
+ network 13.0.0.0
+!
+
+# R3
+router rip
+ version 1
+ network 13.0.0.0
+!
+```
+
+---
+
+## RIPv2 설정
+
+```
+! RIPv2 — Classless, Multicast 224.0.0.9 사용
+router rip
+ version 2                        ! RIPv2 활성화
+ no auto-summary                  ! 자동 요약 비활성화 (VLSM 환경 필수)
+ network 13.0.0.0                 ! 광고 네트워크
+ passive-interface default        ! 모든 인터페이스 업데이트 송신 차단
+ no passive-interface serial 1/0  ! 이웃 라우터 연결 포트만 활성화
+```
+
+### RIPv2 설정 예시
+
+```
+# R1
+router rip
+ version 2
+ no auto-summary
+ network 13.0.0.0
+ network 172.16.0.0
+ passive-interface loopback 172     ! 루프백은 이웃 없으므로 차단
+ passive-interface fastethernet 0/0 ! LAN 포트는 이웃 없으므로 차단
+!
+
+# R2
+router rip
+ version 2
+ no auto-summary
+ network 13.0.0.0
+ passive-interface fastethernet 0/0
+!
+
+# R3
+router rip
+ version 2
+ no auto-summary
+ network 13.0.0.0
+ network 172.16.0.0
+ passive-interface loopback 172
+ passive-interface fastethernet 0/0
+!
+```
+
+---
+
+## Loop 방지 메커니즘
+
+### Split-Horizon
+
+- Distance Vector 계열의 기본 Loop 방지 알고리즘
+- 어떤 Interface로 학습한 경로는 **동일한 Interface로 다시 광고하지 않음**
+- 라우팅 루프 가능성을 원천 차단
+
+```
+! Split-Horizon 상태 확인
+R# show ip interface serial 1/0
+!   Split horizon is enabled   ← 기본 활성
+```
+
+### 등가 부하 분산 (Equal-Cost Load Balancing)
+
+- 동일 목적지에 대해 **Metric이 같은 경로가 여러 개**이면 분산
+- RIP는 Equal-Cost Load Balancing 지원
+- 기본 최대 경로 수: **4개** (IOS 12.2: 최대 6개, IOS 12.4: 최대 16개)
+
+```
+! 최대 부하 분산 경로 수 설정
+router rip
+ maximum-paths 6
+```
+
+---
+
+## RIP 타이머
+
+| 타이머 | 기본값 | 설명 |
+|--------|--------|------|
+| **Update** | 30초 | 전체 라우팅 테이블을 주기적으로 전송 (±15% Jitter 적용) |
+| **Invalid** | 180초 | 업데이트 미수신 시 해당 경로를 Invalid 처리 |
+| **Holddown** | 180초 | Invalid 이후 더 나쁜 경로 수신을 무시 (루프 방지) |
+| **Flushed** | 240초 | 라우팅 테이블에서 해당 경로 완전 삭제 |
+
+---
+
+## Route Poison & Poison Reverse (루프 방지)
+
+- **Route Poison**: 경로 장애 발생 시 Metric을 **16(도달 불가)**으로 즉시 광고
+- **Poison Reverse**: Route Poison을 받은 라우터가 해당 경로에 Metric 16으로 응답하여 확인
+
+```
+# 인터페이스 shutdown → R2가 감지
+
+*Mar 1: RIP: received v2 update from R1    (1) Route Poison
+      13.13.10.0/24 via 0.0.0.0 in 16 hops (inaccessible)
+
+*Mar 1: RIP: sending v2 flash update to R3 (2) Route Poison 전파
+      13.13.10.0/24 via 0.0.0.0, metric 16
+
+*Mar 1: RIP: sending v2 flash update to R1 (3) Poison Reverse
+      13.13.10.0/24 via 0.0.0.0, metric 16
+```
+
+---
+
+## RIPv2 인증 (MD5)
+
+RIPv2는 Key Chain을 이용한 MD5 인증을 지원 → 인증된 라우터 간에만 업데이트 교환
+
+```
+! 1단계: Key Chain 정의
+key chain RIP_AUTH
+ key 20110117                  ! Key ID (양쪽 동일해야 함)
+  key-string cisco1234         ! 실제 패스워드
+
+! 2단계: 인터페이스에 인증 적용
+interface serial 1/0
+ ip rip authentication mode md5          ! 인증 방식: md5 (또는 text)
+ ip rip authentication key-chain RIP_AUTH
+```
+
+### 인증 확인
+
+```
+! 인증 불일치 시 debug 출력
+R1# debug ip rip
+*Mar 1: RIP: ignored v2 packet from 13.13.12.2 (invalid authentication)
+
+! 인증 성공 시
+*Mar 1: RIP: received packet with MD5 authentication
+
+R1# show ip protocol
+  Interface    Send  Recv  Triggered RIP  Key-chain
+  Serial1/0    2     2                    RIP_AUTH
+```
+
+---
+
+## RIP Triggered (변화 시에만 업데이트)
+
+- 기본 RIP는 30초마다 전체 테이블을 전송 → WAN 대역폭 낭비
+- `ip rip triggered`: 라우팅 변화 발생 시에만 업데이트 전송 (P2P WAN에 적합)
+
+```
+interface serial 1/0
+ ip rip triggered    ! 변화 감지 시에만 업데이트 전송
+```
+
+---
+
+## RIPv2 Unicast 전송
+
+- 기본 RIPv2는 Multicast(224.0.0.9) 전송
+- `neighbor` 명령으로 특정 라우터에만 Unicast 전송 가능
+
+```
+! passive-interface로 Multicast 차단 후 neighbor로 Unicast 지정
+router rip
+ passive-interface serial 1/0   ! Multicast 차단
+ neighbor 13.13.12.2            ! 해당 라우터에만 Unicast 전송
+```
+
+---
+
+## 정보 확인 (검증 명령어)
+
+```
+! RIP로 학습한 경로 확인 — [120/hop] 형식
+R# show ip route rip
+
+! 라우팅 프로토콜 설정 확인 — 버전, passive-interface, 타이머 확인
+R# show ip protocol
+
+! RIP 패킷 송수신 실시간 확인 — v1/v2 구분, 출발지/목적지 주소 확인
+R# debug ip rip
+```
+
+| 명령어 | 주로 확인하는 것 |
+|--------|----------------|
+| `show ip route rip` | RIP 경로 존재 여부 및 Hop count |
+| `show ip protocol` | 버전, 광고 네트워크, Passive 설정 |
+| `debug ip rip` | 실제 송수신 패킷 내용 (Multicast/Unicast 여부) |
+| `show key chain` | MD5 인증 Key 설정 확인 |
+
+---
+
+## IOS XE 16.x / 17.x 관점에서의 RIP
+
+> ⚠️ **RIP는 Legacy 프로토콜** — IOS XE 17.15(2026 현재 최신)까지 지원은 유지되나 신규 설계에는 사용하지 않음
+
+### RIP의 현재 위치
+
+| 항목 | 내용 |
+|------|------|
+| 마지막 표준 | RIPv2 (RFC 2453, 1998) / RIPng for IPv6 (RFC 2080) |
+| IOS XE 지원 | 17.x까지 포함 — 삭제 예고 없음, 단 신규 기능 추가 없음 |
+| 실무 대체 | **OSPF** (멀티에리어, 빠른 수렴) 또는 **EIGRP** (CISCO 환경) |
+| 유일한 사용처 | 매우 소규모 환경, 레거시 장비 연동, 시험/학습 목적 |
+
+### IOS XE 16.x에서의 RIP 명령어 변화 (없음)
+
+RIP는 IOS 15.x → IOS XE 16.x/17.x로 전환되어도 명령어 문법 변화 없음.  
+단, IOS XE 환경에서는 아래와 같이 IPv6 RIPng도 동일 방식으로 설정 가능:
+
+```
+! RIPng (IPv6 — IOS XE 포함 동일 문법)
+ipv6 unicast-routing
+ipv6 router rip RIP_PROCESS
+
+interface GigabitEthernet0/1
+ ipv6 rip RIP_PROCESS enable
+```
+
+> 📌 **결론**: IOS XE 16.x/17.x 기반 신규 네트워크에서는 **OSPF 또는 EIGRP Named Mode** 사용 권장. RIP는 기존 Phase 2 자료의 문법 그대로 유효하나 확장성·수렴속도 한계로 실무에서 도태됨.
