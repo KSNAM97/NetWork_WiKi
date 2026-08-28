@@ -80,6 +80,27 @@ interface fastethernet 0/1
 
 WAN 장애 시 G/W1의 Priority: 150 - 100 = **50** → G/W2(100)가 Active 승계
 
+**예시 문제**: G/W1이 평소 Primary Gateway이고, G/W1의 내부(FastEthernet 0/1) 장애 시에는 G/W2가 즉시 승계, G/W1 복구 60초 후 다시 Active로 돌아와야 한다 — 여기까지는 `priority` + `preempt delay`로 해결된다. 그런데 G/W1의 **WAN 구간(Serial 1/0.12)**에 장애가 나도 HSRP는 이를 감지하지 못해 내부망에서는 여전히 G/W1이 Active로 남는 문제가 있다면?
+
+```
+# G/W1 — WAN 인터페이스를 track하여 장애 시 Priority를 100 낮춤
+interface fastethernet 0/1
+ standby 1 ip 200.20.2.254
+ standby 1 priority 150
+ standby 1 timer 1 3
+ standby 1 preempt delay minimum 60      ! 복구 후 60초 뒤 Active 재취득
+ standby 1 track serial 1/0.12 100       ! WAN 장애 시 Priority 150 - 100 = 50
+
+# G/W2 — 상대적으로 우선순위가 높아지므로 preempt만 걸어두면 자동 승계
+interface fastethernet 0/1
+ standby 1 ip 200.20.2.254
+ standby 1 priority 100
+ standby 1 timer 1 3
+ standby 1 preempt
+```
+
+확인: G/W1의 Serial 1/0.12를 `shutdown` 시키면 `G/W1# show standby all`에서 `Priority 50 (configured 150)`으로 표시되며 State가 Standby로, G/W2가 Active로 전환된다. `track`이 없으면 WAN이 끊겨도 LAN 쪽만 보는 HSRP는 이를 인지하지 못해 내부 PC들이 죽은 WAN 경로로 계속 트래픽을 보내는 블랙홀이 발생한다.
+
 ### 확인
 
 ```

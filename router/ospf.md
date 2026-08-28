@@ -169,6 +169,24 @@ interface serial 1/0.123
  ip ospf priority 0
 ```
 
+**예시 문제**: R1, R2, R3이 Frame-Relay(NBMA) 구간으로 연결되어 있고, R2가 반드시 DR로 선출되어야 하며 BDR은 선출하지 않아야 한다는 조건이 주어졌다면 어떻게 설정할까? NBMA는 기본적으로 Hello/Dead가 30/120초이고 `network` 명령만으로는 인접성이 아예 맺어지지 않는다.
+
+```
+! R2 (Hub, DR로 강제)
+interface serial 1/0.123
+ ip ospf priority 255        ! Priority 가장 높게 — DR 선출 보장
+!
+router ospf 1
+ neighbor 13.13.9.1          ! NBMA에서는 neighbor 명령으로 지정한 라우터와만 인접성 형성
+ neighbor 13.13.9.3
+
+! R1, R3 (Spoke, DR/BDR 선출 제외)
+interface serial 1/0.123
+ ip ospf priority 0          ! Priority 0 = DR/BDR 선출 대상에서 제외
+```
+
+확인: `R2# show ip ospf neighbor` 에서 R1/R3이 `FULL/DROTHER`로, `R1# show ip ospf neighbor` 에서 R2가 `FULL/DR`로 보이면 조건 충족. BDR 자리는 Priority 0인 Spoke들만 있으므로 자동으로 선출되지 않는다.
+
 ### Loopback Interface Network Type 변경
 
 Loopback Interface는 기본적으로 LOOPBACK 타입으로 동작하여 /32로 광고됨.
@@ -302,6 +320,16 @@ router ospf 1
 router ospf 1
  area 14 nssa
 ```
+
+**예시 문제**: Area 14에 속한 R4가, 같은 OSPF 내부 경로(O, O IA)는 라우팅 테이블 상세 정보로 통신해야 하지만 EIGRP에서 재분배되어 들어온 외부 경로(O E1/O E2)는 라우팅 테이블에서 아예 보이지 않아야 한다(대신 Default-route로만 통신). 단 Area 0에서는 재분배 정보가 그대로 보여야 한다면, Area 14를 어떤 종류의 Stub으로 만들어야 할까? — ASBR이 다른 Area(0)에 있고 Area 14 자체에는 없으므로 일반 **Stub**(Totally Stub 아님, NSSA 아님)이 조건에 맞는다.
+
+```
+! Area 14에 속한 모든 라우터(ABR인 R1 포함, R4 포함)에서 동일하게 설정 — Stub는 인접성 조건이므로 전원 일치 필수
+router ospf 1
+ area 14 stub
+```
+
+확인: `R4# show ip route ospf` 에서 Stub 적용 전에는 `O E1 13.13.5.0 ...` 같은 재분배 경로가 보이지만, 적용 후에는 O/O IA만 남고 `O*IA 0.0.0.0/0 ...` (Default-route)이 대신 나타난다. 만약 ASBR이 Area 14 안에 있었다면 이 조건 자체가 성립할 수 없다(ASBR 포함 Area는 Stub 불가, NSSA만 가능).
 
 ### Totally NSSA 설정
 

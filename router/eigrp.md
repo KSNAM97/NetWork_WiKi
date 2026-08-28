@@ -58,6 +58,20 @@ router eigrp 100
 
 > ⚠️ FS 조건(AD < Successor FD)을 만족해야만 Unequal-Cost 분산 대상이 됨
 
+**예시 문제**: 어떤 목적지 네트워크로 R1을 통한 Successor 경로(FD 2,195,456)와 R2를 통한 경로(AD 2,349,056)가 동시에 존재한다. R2 경로를 Feasible Successor(백업 경로)로 인정받아 부하 분산에도 포함시키려면 어떤 조건과 설정이 필요한가?
+
+- FS 조건 확인: R2 경로의 AD(2,349,056) < Successor FD(2,195,456) → **조건 불만족** (AD가 오히려 더 큼) → 이 경로는 FS가 될 수 없고 라우팅 루프 방지를 위해 Topology Table에서 대기조차 하지 못한다.
+- 만약 AD가 FD보다 작아 FS 조건을 만족하는 경우라면, variance로 분산에 포함시킬 수 있다.
+
+```
+! FD의 2배 이내 Feasible Successor까지 부하 분산에 포함 (FS 조건 만족 경로에 한함)
+router eigrp 100
+ variance 2
+ maximum-paths 4
+```
+
+확인: `R# show ip eigrp topology`에서 Successor는 `P`(Passive) 상태로 표시되고, FS 조건을 만족하지 못하는 경로는 `show ip eigrp topology all-links`에만 나타난다 — 이 경로는 variance를 아무리 크게 줘도 분산 대상에 포함되지 않는다.
+
 ---
 
 ## IOS XE 최신 트렌드 — Named Mode
@@ -159,6 +173,17 @@ R1(config-router)# offset-list 1 in 600000 serial 1/1
 
 - **in**: 수신 방향으로 들어오는 업데이트에 적용
 - **out**: 송신 방향으로 나가는 업데이트에 적용
+
+**예시 문제**: R5(13.13.15.0/24)가 R4(13.13.14.0/24)로 통신할 때, 현재 최적 경로는 R3 → R1(Serial1/1) 구간을 거치지만, 이를 R3 → R2(Serial1/0.123) 경유로 바꾸고 싶다. EIGRP는 Metric을 직접 지정할 수 없으므로 특정 경로의 Metric을 "증가"시켜 상대적으로 다른 경로가 유리해지도록 유도해야 한다.
+
+```
+! R3에서 R1 방향(Serial1/1)으로 들어오는 13.13.14.0/24 경로의 Metric을 인위적으로 증가
+R3(config)# access-list 1 permit 13.13.14.0 0.0.0.255
+R3(config)# router eigrp 100
+R3(config-router)# offset-list 1 in 600000 serial 1/1
+```
+
+확인: `R3# show ip route eigrp` 에서 적용 전에는 `13.13.14.0/24 ... via 13.13.10.1, Serial1/1`이 최적 경로였다가, 적용 후에는 `via 13.13.9.2, Serial1/0.123`으로 바뀐다. `R5# traceroute 13.13.14.4 source 13.13.15.5`로 실제 경유 라우터가 R2를 거치는지 확인. offset-list는 Metric을 감소시킬 수 없으므로, "이 경로를 못 쓰게 만들어서" 상대적으로 다른 경로를 유리하게 만드는 방식임에 유의.
 
 ---
 

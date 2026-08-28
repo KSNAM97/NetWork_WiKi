@@ -16,6 +16,23 @@
 
 ---
 
+### Extended VLAN과 VTP mode
+
+> 조건: SW1에서 VLAN 3001(Extended VLAN)을 생성해야 한다. 현재 SW1은 VTP Server 모드다.
+
+Server/Client 모드에서는 **Extended VLAN(1006~4094)이 생성되지 않는다.** VLAN 3001을 만들려면 먼저 Transparent 모드로 전환해야 한다.
+
+```
+SW1(config)# vtp mode transparent
+SW1(config)# vlan 3001
+SW1(config-vlan)# exit
+```
+
+- Extended VLAN은 로컬(Transparent)에만 저장되며 다른 스위치로 동기화되지 않는다.
+- SW1을 다시 `vtp mode server`로 되돌리려면 생성해둔 Extended VLAN(3001)을 먼저 삭제해야 한다. 삭제하지 않으면 Server 모드 전환 자체가 거부된다.
+
+---
+
 ## 기본 설정
 
 ```
@@ -72,6 +89,32 @@ SW2(config)# vtp password cisco123
 ```
 
 SW1에서 VLAN을 추가/삭제하면 SW2, SW3에도 자동으로 반영됨
+
+### 실습 예시: 여러 Server가 VLAN을 나눠서 생성
+
+> 조건: SW1, SW2, SW3 모두 VTP Domain = Global_IT, VTP Password = GIT_cisco 로 Server 모드다. SW1에서 VLAN 11-13, SW2에서 VLAN 21-23, SW3에서 VLAN 31-33을 각각 생성하면, 세 스위치 모두에서 VLAN 11-13, 21-23, 31-33이 전부 조회되어야 한다.
+
+```
+# SW1
+SW1(config)# vtp mode server
+SW1(config)# vtp domain Global_IT
+SW1(config)# vtp password GIT_cisco
+SW1(config)# vlan 11-13
+
+# SW2
+SW2(config)# vtp mode server
+SW2(config)# vtp domain Global_IT
+SW2(config)# vtp password GIT_cisco
+SW2(config)# vlan 21-23
+
+# SW3
+SW3(config)# vtp mode server
+SW3(config)# vtp domain Global_IT
+SW3(config)# vtp password GIT_cisco
+SW3(config)# vlan 31-33
+```
+
+Domain과 Password가 동일하고 Trunk로 연결되어 있으면, Server 모드끼리도 서로의 VLAN 광고를 주고받아 세 스위치 모두 9개 VLAN을 동일하게 갖게 된다. `show vtp status`로 Revision 번호가, `show vlan brief`로 VLAN 목록이 일치하는지 확인한다.
 
 ---
 

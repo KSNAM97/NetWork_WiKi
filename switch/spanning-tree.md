@@ -151,6 +151,16 @@ SW(config)# spanning-tree portfast bpduguard default    ← 전체 PortFast 포�
 SW(config-if)# spanning-tree guard root
 ```
 
+**예시 문제**: SW2가 현재 Root Bridge(SW3보다 Priority가 낮음)와 직접 연결되어 있고, SW3은 백업 경로로만 연결되어 있다. 그런데 누군가 SW3에 `spanning-tree vlan 1 priority 0`을 설정해서 SW3을 새로운 Root Bridge로 만들려 한다면, SW2가 이 상황을 막으려면 어떻게 설정해야 하는가?
+
+```
+! SW2 — 기존 Root(SW1 등)가 연결된 포트를 제외한 나머지 모든 포트에 설정
+SW2(config)# interface range fastethernet 0/22 , fastethernet 0/24
+SW2(config-if)# spanning-tree guard root
+```
+
+확인: SW3에서 Priority를 0으로 낮춘 뒤 `SW2# show spanning-tree vlan 1`을 보면 해당 포트가 `Desg BKN*19 ... *ROOT_Inc`로 표시되며 Root Bridge 자리는 여전히 원래 라우터가 유지한다 — Root Guard가 걸린 포트로 더 우월한(Superior) BPDU가 들어오면 그 BPDU를 무시하고 포트 자체를 차단하는 방식이라, Root Bridge 위치가 의도치 않게 바뀌는 것을 막는다.
+
 ### Loop Guard
 
 - 단방향 링크 장애 시 Non-Designated 포트가 Forwarding 전환하는 것을 방지

@@ -27,6 +27,23 @@ R1(config-router)# distribute-list 10 in serial 1/0
 - **in**: 수신하는 라우팅 업데이트에 필터 적용
 - **out**: 송신하는 라우팅 업데이트에 필터 적용
 
+**예시 문제**: R3이 R1으로부터 EIGRP 네트워크 정보를 수신하는데, 그중 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 같은 사설 네트워크 정보는 라우팅 테이블에 아예 올라오지 않도록 걸러내고 싶다. 나머지 네트워크는 정상 수신되어야 한다면?
+
+```
+! R1 (송신측, out) 또는 R3 (수신측, in) 둘 중 한쪽에만 적용하면 된다
+access-list 3 deny 10.0.0.0 0.255.255.255
+access-list 3 deny 172.16.0.0 0.15.255.255
+access-list 3 deny 192.168.0.0 0.0.255.255
+access-list 3 permit any
+!
+! R3에서 적용하는 경우 (in)
+router eigrp 100
+ distribute-list 3 in serial 1/1
+ distribute-list 3 in serial 1/0.123
+```
+
+확인: `R3# show ip route eigrp | exclude FastEthernet0/0` 결과에 10.x/172.16.x/192.168.x 대역이 나타나지 않으면 성공. 하나의 Routing Process에서 같은 인터페이스에 `in`/`out`은 각각 1개씩만 적용 가능하므로, 조건이 여러 개면 ACL 한 개에 permit/deny 라인을 누적해서 구성해야 한다.
+
 ---
 
 ## 2. Prefix-list
@@ -56,6 +73,19 @@ R1(config)# ip prefix-list FILTER seq 20 deny 0.0.0.0/0 le 32
 R1(config)# router ospf 1
 R1(config-router)# distribute-list prefix FILTER in
 ```
+
+**예시 문제**: R1이 R4로부터 수신하는 EIGRP 네트워크 정보 중 "199.171.8.0/24 ~ 199.171.15.0/24" 8개 대역만 수신하고, 그 외 나머지 EIGRP 네트워크 정보는 모두 차단하고 싶다. 8개의 개별 네트워크를 access-list에 일일이 나열하는 대신 wildcard 한 줄로 표현하려면?
+
+- 8.0 ~ 15.0은 이진수로 `0000 1xxx` 패턴이므로, wildcard `0.0.7.255`(하위 3bit 무시)로 한 번에 묶을 수 있다.
+
+```
+R1(config)# access-list 1 permit 199.171.8.0 0.0.7.255   ! .8.0 ~ .15.0 8개 대역을 한 줄로 매칭
+!
+R1(config)# router eigrp 100
+R1(config-router)# distribute-list 1 in fastethernet 0/0
+```
+
+확인: `R1# show ip route eigrp | include FastEthernet0/0` 에서 199.171.8.0 ~ 199.171.15.0만 남고 그 외 EIGRP 경로는 이 인터페이스로 들어오지 않는다. ACL 마지막에 암묵적 `deny any`가 있으므로 별도의 `permit any`를 추가하지 않으면 나머지가 전부 차단된다는 점이 이 조건과 맞아떨어진다.
 
 ---
 

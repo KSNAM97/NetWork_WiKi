@@ -60,6 +60,42 @@ R1(config)# interface fastethernet 0/0
 R1(config-if)# crypto map CMAP
 ```
 
+**예시 문제**: 본사(GIT-A, 100.100.10.0/24)와 지사(GIT-B, 200.200.20.0/24)가 공인망(ISP 4개 구간)을 통해 통신하는데, 중간 ISP 구간에서 트래픽이 그대로 노출되어 캡처가 가능한 상태다. 두 대역 간 트래픽만 IPsec으로 암호화하고, 조건은 Phase 1 = 사전공유키/3DES/MD5/DH group 2, Phase 2 = ESP/AES/SHA-HMAC로 지정하려면?
+
+```
+! GIT-A (R1)
+crypto isakmp policy 10
+ authentication pre-share
+ encryption 3des
+ hash md5
+ group 2
+ lifetime 3600
+!
+crypto isakmp key 0 solcisco address 121.160.20.2   ! Peer(GIT-B) 주소 조건
+!
+crypto ipsec transform-set GIT_A esp-aes esp-sha-hmac
+!
+access-list 100 permit ip 100.100.10.0 0.0.0.255 200.200.20.0 0.0.0.255   ! 암호화 대상 트래픽만 지정
+!
+crypto map IPSEC_GIT_A 10 ipsec-isakmp
+ set peer 121.160.20.2            ! 이 peer로 가는 트래픽에만 crypto map 동작
+ set transform-set GIT_A
+ match address 100                ! ACL 100에 매칭되는 트래픽만 IPsec 적용, 나머지는 평문
+!
+interface serial 1/0.10
+ crypto map IPSEC_GIT_A
+
+! GIT-B (R2) — ACL 방향과 peer만 반대로 대칭 설정
+access-list 100 permit ip 200.200.20.0 0.0.0.255 100.100.10.0 0.0.0.255
+crypto isakmp key 0 solcisco address 121.160.10.1
+crypto map IPSEC_GIT_B 10 ipsec-isakmp
+ set peer 121.160.10.1
+ set transform-set GIT_B
+ match address 100
+```
+
+확인: `GIT-A# show crypto isakmp sa` (Quick Mode 연결), ISP 구간 캡처 시 암호화되어 내용이 보이지 않지만 GIT-A/GIT-B의 내부(FastEthernet) 구간 캡처 시에는 평문으로 확인된다 — `match address`(ACL) 조건에 걸리지 않는 트래픽은 crypto map을 타지 않고 그대로 평문 전송된다는 점에 주의.
+
 ---
 
 ## GRE over IPsec

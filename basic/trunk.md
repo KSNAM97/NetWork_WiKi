@@ -83,6 +83,15 @@ Access Mode와 달리 Trunk Mode에서는 Ethernet Frame에 **4Byte Tag**가 추
 SW(config-if)# switchport trunk native vlan 10
 ```
 
+> 예: SW1과 SW2 사이 Gi1/0/1 링크 하나로 VLAN 10(영업팀), VLAN 20(개발팀) 트래픽만 통과시키고 Native VLAN은 기본값 1이 아닌 999로 변경해야 하는 경우
+
+```
+SW1(config)# interface gigabitEthernet 1/0/1
+SW1(config-if)# switchport mode trunk
+SW1(config-if)# switchport trunk native vlan 999
+SW1(config-if)# switchport trunk allowed vlan 10,20
+```
+
 ---
 
 ## 정보 확인

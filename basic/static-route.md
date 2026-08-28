@@ -104,6 +104,18 @@ router ospf 1
  default-information originate            ! 자신의 Default Route를 OSPF로 광고
 ```
 
+**예시 문제**: R1에서 인터넷으로 나가는 주 경로는 Serial 1/0(192.168.12.2, ISP-A)이고, 이 회선이 끊기면 보조 회선인 Serial 1/1(192.168.13.3, ISP-B)로 자동 전환되어야 한다. 두 개의 Default Route를 동시에 넣으면 EIGRP/OSPF처럼 부하분산이 아니라 둘 다 AD가 같아 예측 불가능한 동작이 될 수 있는데, "평소엔 A만 쓰고 A가 죽으면 B" 조건을 만들려면?
+
+```
+! 주 경로 — 기본 AD 1 그대로 사용
+R1(config)# ip route 0.0.0.0 0.0.0.0 192.168.12.2
+
+! 보조 경로 — AD를 1보다 높은 값(예: 5)으로 지정해 "Floating" Static Route로 등록
+R1(config)# ip route 0.0.0.0 0.0.0.0 192.168.13.3 5
+```
+
+확인: 평소 `R1# show ip route`에는 AD가 더 낮은(1) 주 경로만 올라오고, 보조 경로는 라우팅 테이블에 보이지 않는다(백업 대기 상태). Serial 1/0을 `shutdown`하면 주 경로가 사라지면서 AD 5인 보조 경로가 자동으로 라우팅 테이블에 등록되어 트래픽이 ISP-B로 전환된다.
+
 ---
 
 ## 정보 확인

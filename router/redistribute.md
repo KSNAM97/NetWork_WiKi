@@ -92,6 +92,25 @@ R(config)# router ospf 1
 R(config-router)# redistribute eigrp 100 subnets route-map EIGRP_TO_OSPF
 ```
 
+**예시 문제**: R1이 RIPv2 네트워크 정보를 OSPF 환경으로 재분배해야 하는데, RIPv2 쪽에는 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 같은 사설(Private) 네트워크 대역도 섞여 있다. 이 사설 네트워크 정보는 OSPF 환경으로 재분배되지 않도록 막고, 나머지 네트워크는 그대로 재분배하려면?
+
+```
+! 차단할 사설 네트워크 범위를 Prefix-list로 지정
+ip prefix-list PRIVATE permit 10.0.0.0/8 le 32
+ip prefix-list PRIVATE permit 172.16.0.0/12 le 32
+ip prefix-list PRIVATE permit 192.168.0.0/16 le 32
+!
+route-map RIPv2-->OSPF_REDI deny 10
+ match ip address prefix-list PRIVATE      ! PRIVATE에 매칭되는 네트워크는 차단
+!
+route-map RIPv2-->OSPF_REDI permit 20      ! 나머지 모든 네트워크는 재분배 허용
+!
+router ospf 1
+ redistribute rip subnets route-map RIPv2-->OSPF_REDI
+```
+
+확인: `R2# show ip route ospf | include 10.1.` / `172` / `192` 로 조회 시 사설 네트워크 정보는 나타나지 않아야 한다.
+
 ---
 
 ## Metric 설정
@@ -131,6 +150,27 @@ R(config-route-map)# match tag 200          ← OSPF에서 온 경로 차단
 R(config)# route-map EIGRP_TO_OSPF permit 20
 R(config-route-map)# set tag 100
 ```
+
+**예시 문제**: R3이 OSPF에 포함된 네트워크 정보를 EIGRP 환경으로 재분배하는데, "199.171.0.0/24 ~ 199.171.7.0/24" 대역에는 Tag 100을 표시해야 하고, 그 외 "199.171.x.0/24" 나머지 대역은 아예 재분배에서 제외해야 하며, 199.171.x.0/24를 제외한 모든 나머지 네트워크는 정상적으로 재분배되어야 한다면?
+
+```
+ip prefix-list NET199_TAG permit 199.171.0.0/21 le 32   ! Tag 부착 대상 범위 (.0~.7)
+ip prefix-list NET199_DENY permit 199.171.0.0/16 le 32  ! 199.171.x.0/24 전체 범위
+!
+route-map OSPF-->EIGRP_REDI permit 10
+ match ip address prefix-list NET199_TAG
+ set tag 100                        ! .0~.7 대역만 Tag 100 부착
+!
+route-map OSPF-->EIGRP_REDI deny 20
+ match ip address prefix-list NET199_DENY   ! Tag 안 붙은 나머지 199.171.x.0/24는 차단
+!
+route-map OSPF-->EIGRP_REDI permit 30       ! 199.171.x.0/24 외 나머지는 모두 허용
+!
+router eigrp 100
+ redistribute ospf 1 metric 100000 10 255 1 1500 route-map OSPF-->EIGRP_REDI
+```
+
+확인: `R5# show ip eigrp topology | include tag is 100` 으로 .0~.7 대역에만 Tag 100이 붙었는지, `show ip route eigrp | include 199` 로 나머지 199.171.x.0/24 대역이 라우팅 테이블에서 빠졌는지 확인한다. route-map의 permit/deny 순서(구체적 매칭 → 차단 → 허용)가 핵심이다.
 
 ---
 

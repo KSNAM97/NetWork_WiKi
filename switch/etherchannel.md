@@ -235,6 +235,34 @@ interface GigabitEthernet1/0/1
  lacp port-priority 100          ! 낮을수록 우선 활성 포트
 ```
 
+**예시 문제**: SW1-SW2 구간은 Fa0/23-24를 PAgP(desirable)로, SW1-SW3 구간(SW1의 Fa0/21-22)은 LACP(active)로 각각 EtherChannel을 구성해야 한다. 상대 스위치인 SW2/SW3 쪽 모드를 잘못 맞추면(예: 양쪽 다 auto, 혹은 양쪽 다 passive) 채널이 아예 형성되지 않는데, 어떤 조합이 유효한가?
+
+- PAgP: desirable-desirable, desirable-auto는 성립 / **auto-auto는 성립하지 않음** (양쪽 다 수동적으로 대기만 하므로)
+- LACP: active-active, active-passive는 성립 / **passive-passive는 성립하지 않음**
+
+```
+! SW1 — SW2 방향 (PAgP desirable), SW3 방향 (LACP active)
+interface range fastethernet 0/23 - 24
+ channel-protocol pagp
+ channel-group 12 mode desirable
+!
+interface range fastethernet 0/21 - 22
+ channel-protocol lacp
+ channel-group 13 mode active
+
+! SW2 — 반드시 desirable 또는 auto (auto만 있으면 SW1이 desirable이므로 OK)
+interface range fastethernet 0/23 - 24
+ channel-protocol pagp
+ channel-group 12 mode desirable
+
+! SW3 — 반드시 active 또는 passive (SW1이 active이므로 passive도 가능)
+interface range fastethernet 0/21 - 22
+ channel-protocol lacp
+ channel-group 13 mode active
+```
+
+확인: `SW1# show etherchannel summary`에서 Port-channel 상태가 `SU`(Layer2, In use)로 나오면 정상 번들링된 것이고, 두 스위치가 모두 `auto`(PAgP) 또는 모두 `passive`(LACP)로 설정되어 있으면 포트는 개별 링크로만 남고 Port-channel에 묶이지 않는다.
+
 ### EtherChannel Load Balancing 방식 (`IOS XE 16.x+`)
 
 ```

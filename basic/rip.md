@@ -191,6 +191,27 @@ R1# show ip protocol
   Serial1/0    2     2                    RIP_AUTH
 ```
 
+**예시 문제**: R1과 R2 사이 구간(Serial 1/0)에서만 신뢰할 수 없는 제3자의 RIP 업데이트 주입을 막기 위해 인증을 걸고 싶고, R2와 R3 사이 구간은 인증 없이 그대로 두려는 조건이라면? RIP 인증은 프로세스 전역이 아니라 **인터페이스 단위**로 붙는다는 점이 핵심이다.
+
+```
+! R1, R2 공통 — 동일한 Key ID/String의 Key Chain 정의
+key chain RIP_AUTH
+ key 1
+  key-string cisco1234
+
+! R1 — R2와 마주보는 인터페이스에만 인증 적용
+interface serial 1/0
+ ip rip authentication mode md5
+ ip rip authentication key-chain RIP_AUTH
+
+! R2 — 동일한 인터페이스에만 적용 (R3 방향 인터페이스는 그대로 둠)
+interface serial 1/0
+ ip rip authentication mode md5
+ ip rip authentication key-chain RIP_AUTH
+```
+
+확인: R1-R2 구간은 정상적으로 이웃을 유지하지만, Key를 일부러 다르게 설정하면 `debug ip rip`에서 `ignored v2 packet ... (invalid authentication)`이 찍힌다. R2-R3 인터페이스에는 인증 명령을 넣지 않았으므로 그 구간은 평소처럼 인증 없이 업데이트가 오간다 — 인증이 "프로세스 전체"가 아니라 "그 인터페이스"에만 적용되는 것을 확인하는 것이 이 조건의 핵심이다.
+
 ---
 
 ## RIP Triggered (변화 시에만 업데이트)

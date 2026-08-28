@@ -142,6 +142,17 @@ R1(config)# line vty 0 4
 R1(config-line)# login local    ! 로컬 username/password로 인증
 ```
 
+**예시 문제**: R1의 VTY 라인에는 아무런 접속 제한이 없어서 아무 IP에서나 Telnet 접속을 시도할 수 있다. 관리 목적으로 오직 3.3.3.3(관리자 PC/Loopback)에서만 접속을 허용하고 나머지는 모두 거부하려면 어떻게 해야 하는가?
+
+```
+R1(config)# access-list 1 permit 3.3.3.3 0.0.0.0   ! 허용할 출발지 IP만 정확히 매칭
+!
+R1(config)# line vty 0 4
+R1(config-line)# access-class 1 in                  ! VTY 인바운드 접속에 ACL 1 적용
+```
+
+확인: 허용되지 않은 IP에서 `R3# telnet 1.1.1.1`을 시도하면 `% Connection refused by remote host`로 즉시 거부되지만, `R3# telnet 1.1.1.1 /source-interface loopback 0`처럼 출발지를 3.3.3.3으로 지정하면 정상 접속된다. `ip access-group`(인터페이스용)와 달리 VTY 라인에는 반드시 `access-class`로 적용해야 한다는 점에 주의.
+
 ---
 
 ## SSH (Secure Shell)

@@ -51,6 +51,22 @@ R1(config-if)# ip access-group 101 in
 
 > ✅ Extended ACL은 출발지에 **최대한 가깝게** 적용 (불필요한 트래픽을 초기에 차단)
 
+**예시 문제**: R2 내부 네트워크 13.13.12.0/24로 들어오는 트래픽 중, 150.1.13.4에서 오는 Telnet과 150.3.13.5에서 오는 HTTP는 차단하고, 출발지 13.13.11.0/24 → 목적지 13.13.12.0/24 구간의 ICMP도 차단해야 한다. 나머지 트래픽은 모두 허용. 이 ACL을 R2의 어느 인터페이스에, `in`과 `out` 중 어느 방향으로 적용해야 할까?
+
+- 트래픽이 **외부에서 R2로 들어오는** 시점에 걸러야 하므로, 외부와 연결된 Serial 인터페이스에 **`in`** 방향으로 적용한다. (반대로 `out`으로 걸면 R2 내부에서 나가는 트래픽 기준으로 검사되어 조건과 어긋난다.)
+
+```
+R2(config)# access-list 101 deny tcp host 150.1.13.4 13.13.12.0 0.0.0.255 eq 23
+R2(config)# access-list 101 deny tcp host 150.3.13.5 13.13.12.0 0.0.0.255 eq 80
+R2(config)# access-list 101 deny icmp 13.13.11.0 0.0.0.255 13.13.12.0 0.0.0.255
+R2(config)# access-list 101 permit ip any any
+!
+R2(config)# interface serial 1/0.123     ! 외부(WAN)와 연결된 인터페이스
+R2(config-if)# ip access-group 101 in    ! 인터페이스로 "들어오는" 트래픽 기준 — in
+```
+
+확인: `R4# telnet 13.13.12.2` → 접속 실패(`Destination unreachable`), `R1# ping 13.13.12.2 source 13.13.11.1` → 실패. 만약 `ip access-group 101 out`으로 잘못 적용했다면 이 ACL은 R2에서 나가는 트래픽에는 영향을 주지 못해 조건을 만족하지 못한다.
+
 ---
 
 ## Named ACL
@@ -157,6 +173,22 @@ R2(config)# access-list 104 permit ip any any
 ```
 
 > `established`: TCP 세션 연결 후 응답 트래픽만 허용 (SYN 패킷 차단)
+
+**예시 문제**: R2에서 외부 네트워크가 내부 네트워크 13.13.2.0/24, 13.13.12.0/24로 접근하는 TCP 트래픽은 차단해야 하지만, 13.13.12.0/24가 **먼저 외부로** 나가는 TCP 통신(및 그 응답)은 허용되어야 한다. 단순히 `deny tcp any 13.13.12.0 0.0.0.255`만 넣으면 13.13.12.0/24가 외부로 보낸 요청의 **응답 트래픽**(SA/DA가 뒤바뀐 SYN,ACK)까지 막혀버려 내부 → 외부 통신 자체가 끊긴다. 어떻게 설정해야 하는가?
+
+```
+! ack(또는 established)로 응답 트래픽만 먼저 허용한 뒤 신규 요청을 차단
+R2(config)# access-list 104 permit tcp any 13.13.2.0 0.0.0.255 established
+R2(config)# access-list 104 permit tcp any 13.13.12.0 0.0.0.255 established
+R2(config)# access-list 104 deny tcp any 13.13.2.0 0.0.0.255
+R2(config)# access-list 104 deny tcp any 13.13.12.0 0.0.0.255
+R2(config)# access-list 104 permit ip any any
+!
+R2(config)# interface serial 1/0.123
+R2(config-if)# ip access-group 104 in
+```
+
+확인: `R4# telnet 13.13.2.2` → 외부에서 시작한 세션은 실패, `R2# telnet 13.13.4.4` → R2 내부에서 시작한 세션(및 그 응답)은 정상 연결. `established`/`ack` 매칭 라인을 반드시 `deny`보다 **위**에 둬야 응답 트래픽이 먼저 허용된다.
 
 ---
 
