@@ -19,8 +19,8 @@
 
 | 종류 | 범위 | 비고 |
 |------|------|------|
-| Standard VLAN | 1 ~ 1005 | 1, 1002-1005는 예약 VLAN |
-| Extended VLAN | 1006 ~ 4094 | 장비 시리즈/IOS에 따라 지원 여부 다름 |
+| Standard VLAN | 1 - 1005 | 1, 1002-1005는 예약 VLAN |
+| Extended VLAN | 1006 - 4094 | 장비 시리즈/IOS에 따라 지원 여부 다름 |
 | Default VLAN | 1 | 모든 포트가 기본적으로 속하는 VLAN |
 
 ---
@@ -29,8 +29,22 @@
 
 ### 단일 VLAN 생성
 
+**예시**: 인사팀 PC들을 위해 VLAN 10을 새로 생성해야 하는 경우
+
 ```
-Switch(config)# vlan 10
+SW1(config)# vlan 10
+```
+
+정보 확인
+
+```
+SW1# show vlan brief
+
+VLAN Name                             Status    Ports
+---- -------------------------------- --------- ------------
+1    default                          active    Fa0/1, Fa0/2, Fa0/3, Fa0/4
+                                                 Fa0/5, Fa0/6, Fa0/7, Fa0/8
+10   VLAN0010                        active    <--- VLAN 10 생성 확인
 ```
 
 ### 다중 VLAN 생성
@@ -38,6 +52,20 @@ Switch(config)# vlan 10
 ```
 Switch(config)# vlan 10,20,30
 Switch(config)# vlan 11-30
+```
+
+정보 확인 (콤마로 여러 개 생성)
+
+```
+SW1# show vlan brief
+
+VLAN Name                             Status    Ports
+---- -------------------------------- --------- -----------
+1    default                          active    Fa0/1, Fa0/2, Fa0/3, Fa0/4
+                                                 Fa0/5, Fa0/6, Fa0/7, Fa0/8
+10   VLAN0010                        active    <--- VLAN 10 생성 확인
+20   VLAN0020                        active    <--- VLAN 20 생성 확인
+30   VLAN0030                        active    <--- VLAN 30 생성 확인
 ```
 
 ### VLAN 이름 변경
@@ -105,6 +133,8 @@ SW# show vlan name SALES            ! VLAN 이름으로 검색
 | **Primary** | 외부 통신용 VLAN |
 | **Isolated** | 포트 간 상호 통신 완전 차단 |
 | **Community** | 같은 Community 내 통신만 허용 |
+
+**예시**: 호텔 게스트 네트워크처럼 같은 VLAN 안에서도 포트 간 통신을 완전히 막아야 하는 경우, Private VLAN의 Isolated 타입을 사용한다.
 
 ```
 ! Private VLAN 설정 (IOS XE 16.x+)

@@ -4,6 +4,68 @@
 
 ---
 
+## 사전 설정 (Pre-config)
+
+Redistribute 실습을 위한 기본 토폴로지 — R1~R5 5대의 라우터로 구성되며, R1-R2-R3는 Frame-Relay 멀티포인트(13.13.9.0/24)로 연결되고 R1-R3는 별도 P2P 서브인터페이스(13.13.10.0/24)로도 연결된다. **R4는 RIPv2**, **R5는 EIGRP 100**을 각각 독자적으로 운영하며, 이 둘을 재분배로 연결하는 것이 핵심 실습이다.
+
+- R1: Lo0 13.13.1.1/24, Fa0/0 150.1.13.1/24(R4 방향), Fa0/1 13.13.11.1/24, S1/0.123(F-R Multipoint) 13.13.9.1/24, S1/1(F-R) 13.13.10.1/24(R3 방향)
+- R2: Lo0 13.13.2.2/24, Fa0/1 13.13.12.2/24, S1/0.123(F-R Multipoint) 13.13.9.2/24
+- R3: Lo0 13.13.3.3/24, Fa0/0 150.3.13.3/24(R5 방향), Fa0/1 13.13.13.3/24, S1/0.123(F-R Multipoint) 13.13.9.3/24, S1/1(F-R) 13.13.10.3/24(R1 방향)
+- **R4 (RIP 도메인)**: Lo0 13.13.4.4/24, Lo150 150.100.1.254/24, Lo10(10.1.0-3.4/24), Lo172(172.16.4-7.4/24), Lo192(192.168.8-11.4/24), Lo199(199.171.1-16.4/24 다중 secondary), Fa0/0 150.1.13.4/24(R1 방향), Fa0/1 13.13.14.4/24 — `router rip` / `version 2` / 각 대역 `network` / `no auto-summary`
+- **R5 (EIGRP 100 도메인)**: Lo0 13.13.5.5/24, Lo4 4.1.1.5/24, Lo128(128.28.2.5, 128.128.1.5), Lo198(198.198.x.5, 198.2.x.5, 198.1.1.5/30 다중 secondary), Fa0/0 150.3.13.5/24(R3 방향), Fa0/1 13.13.15.5/24 — `router eigrp 100` / `passive-interface default` + `no passive-interface fastethernet 0/0` / 각 대역 `network` / `no auto-summary`
+
+공통 초기화(`no ip domain-lookup`, `enable secret cisco`, `line con/vty password cisco`)는 모든 라우터에 적용된다.
+
+```
+! R4 — RIPv2 도메인 (재분배 대상 원본)
+router rip
+ version 2
+ network 10.0.0.0
+ network 13.0.0.0
+ network 150.1.0.0
+ network 172.16.0.0
+ network 150.100.0.0
+ network 192.168.8.0
+ network 192.168.9.0
+ network 192.168.10.0
+ network 192.168.11.0
+ network 199.171.1.0
+ network 199.171.2.0
+ network 199.171.3.0
+ network 199.171.4.0
+ network 199.171.5.0
+ network 199.171.6.0
+ network 199.171.7.0
+ network 199.171.8.0
+ network 199.171.9.0
+ network 199.171.10.0
+ network 199.171.11.0
+ network 199.171.12.0
+ network 199.171.13.0
+ network 199.171.14.0
+ network 199.171.15.0
+ network 199.171.16.0
+ no auto-summary
+
+! R5 — EIGRP 100 도메인 (재분배 대상 원본)
+router eigrp 100
+ no auto-summary
+ passive-interface default
+ no passive-interface fastethernet 0/0
+ network 13.13.5.5 0.0.0.0
+ network 13.13.15.5 0.0.0.0
+ network 4.1.1.5 0.0.0.0
+ network 128.28.2.5 0.0.0.0
+ network 128.128.1.5 0.0.0.0
+ network 150.1.3.5 0.0.0.0
+ network 150.3.13.5 0.0.0.0
+ network 198.1.1.5 0.0.0.0
+ network 198.2.0.0 0.0.255.255
+ network 198.198.0.0 0.0.255.255
+```
+
+---
+
 ## 개념
 
 - 서로 다른 라우팅 프로토콜이 공존하는 환경에서 필요

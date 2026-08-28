@@ -7,6 +7,100 @@
 
 ---
 
+## 사전 설정 (Pre-config)
+
+EIGRP 실습을 위한 기본 토폴로지 — R1~R5 5대의 라우터로 구성되며, R1-R2-R3는 Frame-Relay 멀티포인트(13.13.9.0/24)로 연결되고 R1-R3는 별도 P2P 서브인터페이스(13.13.10.0/24)로도 연결된다. R4, R5는 각각 다수의 Loopback(요약 실습용 서브넷 포함)을 보유한다.
+
+- R1: Lo0 13.13.1.1/24, Fa0/0 150.1.13.1/24(R4 방향), Fa0/1 13.13.11.1/24, S1/0.123(F-R Multipoint) 13.13.9.1/24, S1/1(F-R) 13.13.10.1/24(R3 방향)
+- R2: Lo0 13.13.2.2/24, Fa0/1 13.13.12.2/24, S1/0.123(F-R Multipoint) 13.13.9.2/24
+- R3: Lo0 13.13.3.3/24, Fa0/0 150.3.13.3/24(R5 방향), Fa0/1 13.13.13.3/24, S1/0.123(F-R Multipoint) 13.13.9.3/24, S1/1(F-R) 13.13.10.3/24(R1 방향)
+- R4: Lo0 13.13.4.4/24, Lo197(secondary 다중 서브넷 197.110.8.4-15.4/24), Fa0/0 150.1.13.4/24(R1 방향), Fa0/1 13.13.14.4/24 — `router eigrp 100` / `network 197.110.8.0 0.0.7.255` / `no auto-summary`
+- R5: Lo0 13.13.5.5/24, Lo4 4.1.1.254/24, Lo10(secondary 172.16.15.5, 192.168.25.5), Lo128(secondary 128.28.2.254), Lo198(secondary 198.2.1.5-5.5, 198.198.0.5-7.5 다중 서브넷), Fa0/0 150.3.13.5/24(R3 방향), Fa0/1 13.13.15.5/24 — `router eigrp 100` / 다수 `network` 문 / `no auto-summary`
+
+R1~R3는 Frame-Relay 스위치를 경유한 멀티포인트/P2P 구성이며, 공통 초기화(`no ip domain-lookup`, `enable secret cisco`, `line con/vty password cisco`)가 모든 라우터에 적용된다.
+
+```
+! R1
+hostname R1
+!
+interface loopback 0
+ ip add 13.13.1.1 255.255.255.0
+!
+interface fastethernet0/0
+ ip add 150.1.13.1 255.255.255.0
+ no shutdown
+!
+interface fastethernet0/1
+ ip add 13.13.11.1 255.255.255.0
+ no shutdown
+!
+interface serial 1/0
+ no shutdown
+ encapsulation frame-relay
+ no frame-relay inverse-arp
+!
+interface serial 1/0.123 multipoint
+ ip add 13.13.9.1 255.255.255.0
+ frame-relay map ip 13.13.9.2 102 broadcast
+ frame-relay map ip 13.13.9.3 102 broadcast
+ no shutdown
+!
+interface serial1/1
+ ip add 13.13.10.1 255.255.255.0
+ encapsulation frame-relay
+ no frame-relay inverse-arp
+ frame-relay map ip 13.13.10.3 113 broadcast
+ no shutdown
+
+! R4 — EIGRP 요약용 다중 Loopback
+interface loopback 197
+ ip address 197.110.8.4  255.255.255.0
+ ip address 197.110.9.4  255.255.255.0 secondary
+ ip address 197.110.10.4 255.255.255.0 secondary
+ ip address 197.110.11.4 255.255.255.0 secondary
+ ip address 197.110.12.4 255.255.255.0 secondary
+ ip address 197.110.13.4 255.255.255.0 secondary
+ ip address 197.110.14.4 255.255.255.0 secondary
+ ip address 197.110.15.4 255.255.255.0 secondary
+!
+router eigrp 100
+ network 197.110.8.0  0.0.7.255
+ no auto-summary
+
+! R5 — EIGRP 요약용 다중 Loopback
+interface loopback 198
+ description ### EIGRP NETWORK ###
+ ip address 198.2.1.5 255.255.255.0
+ ip address 198.2.2.5 255.255.255.0 secondary
+ ip address 198.2.3.5 255.255.255.0 secondary
+ ip address 198.2.4.5 255.255.255.0 secondary
+ ip address 198.2.5.5 255.255.255.0 secondary
+ ip address 198.198.0.5 255.255.255.0 secondary
+ ip address 198.198.1.5 255.255.255.0 secondary
+ ip address 198.198.2.5 255.255.255.0 secondary
+ ip address 198.198.3.5 255.255.255.0 secondary
+ ip address 198.198.4.5 255.255.255.0 secondary
+ ip address 198.198.5.5 255.255.255.0 secondary
+ ip address 198.198.6.5 255.255.255.0 secondary
+ ip address 198.198.7.5 255.255.255.0 secondary
+!
+router eigrp 100
+ network 13.13.5.5 0.0.0.0
+ network 4.1.1.254 0.0.0.0
+ network 128.28.2.254 0.0.0.0
+ network 128.128.1.254 0.0.0.0
+ network 150.1.3.254 0.0.0.0
+ network 150.3.13.5 0.0.0.0
+ network 198.2.0.0 0.0.255.255
+ network 198.198.0.0 0.0.255.255
+ network 10.1.5.0  0.0.0.255
+ network 172.16.15.0  0.0.0.255
+ network 192.168.25.0  0.0.0.255
+ no auto-summary
+```
+
+---
+
 ## 기본 설정
 
 ```

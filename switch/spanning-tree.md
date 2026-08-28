@@ -23,6 +23,51 @@
 
 > **Blocking → Forwarding 전환 시간**: 기본 30-50초
 
+### 장애 시나리오별 수렴 시간
+
+장애 위치에 따라 복구 시작 상태가 다르므로 실제 수렴 시간도 달라진다.
+
+**① Root Bridge - Non Root Bridge 구간 장애** (Root Port가 이미 Forwarding 상태였던 구간)
+
+```
+Blocking 상태였던 Alternate Port가 즉시 Root Port로 승격 →
+Listening(15초) → Learning(15초) → Forwarding   [총 30초 소요]
+```
+
+```
+SW1(config)# interface fa0/24
+SW1(config-if)# shutdown
+
+! SW1 debug spanning-tree events
+03:15:40: STP: VLAN0001 new root port Fa0/20, cost 38    <---- Fa0/24 장애 시 Fa0/20이 새 Root Port로 전환
+03:15:40: STP: VLAN0001 Fa0/20 -> listening               <---- Forwarding 전 Loop 체크
+03:15:55: STP: VLAN0001 Fa0/20 -> learning                <---- Mac-address 학습
+03:16:10: STP: VLAN0001 Fa0/20 -> forwarding               <---- Forwarding 전환 완료
+```
+
+**② Root Bridge - Backup Root Bridge 구간 장애** (Blocking 포트가 Max-age 만료를 기다려야 하는 구간)
+
+```
+Blocking(20초, Max-age 만료 대기) → Listening(15초) → Learning(15초) → Forwarding   [총 50초 소요]
+```
+
+```
+! Root로부터의 BPDU가 더 이상 들어오지 않아 Max-age(20초) 동안 기존 정보를 유지하다 만료
+00:58:06 ~ 00:58:24: STP: VLAN0001 heard root 16385-000f.248a.3480 on Fa0/20   (반복 수신 중이던 BPDU 끊김)
+00:58:25: STP: VLAN0001 Fa0/20 -> listening
+00:58:25: STP: VLAN0001 Topology Change rcvd on Fa0/20
+00:58:40: STP: VLAN0001 Fa0/20 -> learning
+00:58:55: STP: VLAN0001 Fa0/20 -> forwarding
+```
+
+관련 타이머 조정 명령어:
+
+```
+SW(config)# spanning-tree vlan [번호] hello-time [초]    ! 기본 2초
+SW(config)# spanning-tree vlan [번호] forward-time [초]  ! 기본 15초 (Listening/Learning 각 단계)
+SW(config)# spanning-tree vlan [번호] max-age [초]        ! 기본 20초
+```
+
 ---
 
 ## Root Bridge 선출

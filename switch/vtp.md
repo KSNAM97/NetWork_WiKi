@@ -6,13 +6,29 @@
 
 ---
 
+## VTP 사용 조건
+
+VTP로 VLAN 정보를 동기화하려면 세 가지 조건이 모두 맞아야 한다.
+
+1. **Trunk 연결** — Switch간 반드시 Trunk로 연결되어야 함 (Access 링크로는 VTP 광고가 전달되지 않음)
+2. **VTP Domain 일치** — Domain이 다르면 그 Switch를 기준으로 양쪽은 VLAN을 동기화하지 않음. Domain은 각 Switch에서 개별 설정하지만, Trunk로 연결된 상태에서 한쪽에서 설정하면 자동으로 전파됨
+3. **VTP Password 일치** — Password는 전파되지 않으므로 각 Switch에서 개별적으로 동일하게 설정해야 함
+
+---
+
 ## VTP 모드
 
-| 모드 | VLAN 생성/삭제 | 광고 수신 | 광고 전달 | 저장 |
-|------|---------------|-----------|-----------|------|
-| **Server** | O | O | O | O (NVRAM) |
-| **Client** | X | O | O | X |
-| **Transparent** | O (로컬만) | O (무시) | O | O (로컬만) |
+| 모드 | VLAN 생성 | VLAN 수정 | VLAN 삭제 | 전파 | 일치 | 중계 | 저장 |
+|------|-----------|-----------|-----------|------|------|------|------|
+| **Server** (기본값) | O | O | O | O | O | O | O (NVRAM) |
+| **Client** | X | X | X | X | O | O | X |
+| **Transparent** | O (로컬만) | O (로컬만) | O (로컬만) | X | X | O | O (로컬만) |
+
+- **전파(Advertise)**: 자신의 VLAN 변경 정보를 Trunk로 연결된 다른 Switch에 동기화시키는 권한
+- **일치(Synchronize)**: Trunk로부터 받은 VLAN 변경 정보를 자신에게 반영하는 권한
+- **중계(Relay)**: Trunk로부터 받은 VLAN 정보를 다른 Trunk 포트로 그대로 전달하는 권한 — Transparent 모드도 자신은 동기화하지 않지만 중계는 수행
+
+> Revision Number는 전파 또는 일치 중 최소 하나의 권한이 있어야 증가한다.
 
 ---
 
@@ -20,7 +36,7 @@
 
 > 조건: SW1에서 VLAN 3001(Extended VLAN)을 생성해야 한다. 현재 SW1은 VTP Server 모드다.
 
-Server/Client 모드에서는 **Extended VLAN(1006~4094)이 생성되지 않는다.** VLAN 3001을 만들려면 먼저 Transparent 모드로 전환해야 한다.
+Server/Client 모드에서는 **Extended VLAN(1006-4094)이 생성되지 않는다.** VLAN 3001을 만들려면 먼저 Transparent 모드로 전환해야 한다.
 
 ```
 SW1(config)# vtp mode transparent
@@ -56,6 +72,70 @@ SW(config)# vtp version [1 | 2 | 3]
 SW(config)# vtp mode transparent
 SW(config)# vtp mode server       ← 다시 Server로 변경 시 Revision 0으로 초기화
 ```
+
+---
+
+## VTP 광고 메시지 종류
+
+VTP는 VLAN 1을 통해 아래 세 종류의 메시지를 주고받으며 VLAN Database를 동기화한다.
+
+| 메시지 | 발신 | 설명 |
+|--------|------|------|
+| **Summary-Advertisement** | VTP Server | VLAN Database 변경 시 Revision Number를 전파. 변경이 없어도 5분마다 주기적으로 전파 |
+| **Advertise-Request** | 자신보다 낮은 Revision을 가진 Switch | Summary-Advertisement 수신 후 자신보다 Revision이 높음을 확인하면 상세 정보를 요청 |
+| **Subset-Advertisement** | 요청받은 Switch | Advertise-Request에 대한 응답으로 변경된 VLAN Database 상세 정보를 전달 |
+
+---
+
+### 혼합 모드(Server-Client-Transparent-Client) 구성 예시
+
+> 조건: SW1(Server)만 VLAN을 생성, SW2(Client)·SW4(Client)는 SW1로부터만 VLAN을 공유, SW3(Transparent)은 다른 Switch와 VLAN 정보를 공유하지 않는다. VTP Domain = GIT_NET, Password = cisco1234.
+
+```
+   VTP Server        VTP Client        VTP Transparent        VTP Client
+  SW1 ------------- SW2 ------------- SW3 ------------------- SW4
+      Fa0/20             Fa0/21               Fa0/22
+```
+
+```
+# SW1
+interface fastethernet 0/20
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+!
+vtp mode server
+vtp domain GIT_NET
+vtp password cisco1234
+
+# SW2
+interface range fa0/20 - 21
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+!
+vtp mode client
+vtp domain GIT_NET
+vtp password cisco1234
+
+# SW3 (Transparent — VLAN을 로컬로만 생성/관리, SW2↔SW4 사이는 그대로 중계만 수행)
+interface range fa0/21 - 22
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+!
+vtp mode transparent
+vtp domain GIT_NET
+vtp password cisco1234
+
+# SW4
+interface fastethernet 0/22
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+!
+vtp mode client
+vtp domain GIT_NET
+vtp password cisco1234
+```
+
+SW1에서 생성한 VLAN은 SW2까지만 동기화되고, SW3은 Transparent이므로 자신의 VLAN Database에는 반영하지 않지만 Trunk 프레임 자체는 SW4로 중계한다 — 단, SW4는 SW3의 VLAN 변경 정보를 받는 것이 아니라 SW1이 원래 SW2 경유로 보낸 광고를 SW3이 그대로 전달해주는 것이므로, SW3에서 직접 VLAN을 만들어도 SW2·SW4에는 반영되지 않는다.
 
 ---
 

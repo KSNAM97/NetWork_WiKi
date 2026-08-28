@@ -87,6 +87,21 @@
 - **Broadcast Domain을 분할**하는 장비
 - Cisco IOS에 의존하는 **소프트웨어 기반** 장비
 
+### 예시: 같은 네트워크는 Switch, 다른 네트워크는 Router
+
+PC-A(192.168.1.10)와 PC-B(192.168.1.20)는 같은 네트워크에 속해 있고, PC-C(192.168.2.10)는 다른 네트워크에 속해 있다. PC-A가 PC-B와 통신할 때는 Switch만으로 충분하지만, PC-C와 통신하려면 Router가 게이트웨이 역할을 해야 한다.
+
+```
+! R1 — 두 네트워크를 연결하는 게이트웨이 설정
+R1(config)# interface fastethernet 0/0
+R1(config-if)# ip address 192.168.1.1 255.255.255.0
+R1(config-if)# no shutdown
+!
+R1(config)# interface fastethernet 0/1
+R1(config-if)# ip address 192.168.2.1 255.255.255.0
+R1(config-if)# no shutdown
+```
+
 ---
 
 ## 장비 비교

@@ -19,6 +19,9 @@
 | Privilege Mode | `Router#` | 전체 show/debug/copy 명령어 사용 가능 |
 | Global Mode | `Router(config)#` | 설정 입력 — RAM에 즉시 반영 |
 
+- Cisco Router는 Privilege Level(0-15)로 권한을 세분화하며, Console/AUX/VTY로 접속하면 기본적으로 Privilege Level 1인 User Mode로 진입한다.
+- Privilege Mode(Level 15)에서만 `show`(정적 정보 확인) 외에 `debug`(동적 정보 확인), `copy`(RAM → NVRAM 저장), 원격 접속(Telnet/SSH) 등 전체 기능을 사용할 수 있다.
+
 ```
 Router> enable                ← User → Privilege
 Router# configure terminal    ← Privilege → Global
@@ -78,6 +81,55 @@ R2(config-if)# ip address 192.168.12.2 255.255.255.0
 Router(config)# interface loopback 0
 Router(config-if)# ip address 1.1.1.1 255.255.255.255
 ```
+
+### 예제: R1 - R2 - R3 직렬 연결 (Ethernet + Serial)
+
+**조건**: R1-Fa0/0에 192.168.1.0/24, R2-Fa0/0에 192.168.2.0/24, R3-Fa0/0에 192.168.3.0/24 LAN이 붙어 있고, R1-R2 구간은 192.168.12.0/24, R2-R3 구간은 192.168.23.0/24 Serial 링크로 연결한다. Serial 구간의 DCE는 R2 쪽이다.
+
+```
+! R1
+interface fastethernet 0/0
+ no shutdown
+ ip address 192.168.1.254 255.255.255.0
+!
+interface serial 1/0             ! DTE
+ no shutdown
+ encapsulation hdlc
+ bandwidth 64
+ ip address 192.168.12.1 255.255.255.0
+
+! R2
+interface fastethernet 0/0
+ no shutdown
+ ip address 192.168.2.254 255.255.255.0
+!
+interface serial 1/1             ! DCE (R1 방향)
+ no shutdown
+ encapsulation hdlc
+ bandwidth 64
+ clock rate 64000
+ ip address 192.168.12.2 255.255.255.0
+!
+interface serial 1/0             ! DCE (R3 방향)
+ no shutdown
+ encapsulation hdlc
+ bandwidth 64
+ clock rate 64000
+ ip address 192.168.23.2 255.255.255.0
+
+! R3
+interface fastethernet 0/0
+ no shutdown
+ ip address 192.168.3.254 255.255.255.0
+!
+interface serial 1/1             ! DTE
+ no shutdown
+ encapsulation hdlc
+ bandwidth 64
+ ip address 192.168.23.3 255.255.255.0
+```
+
+설정 후 `R1# ping 192.168.12.2`(R2 Next-hop), `R2# ping 192.168.23.3`(R3 Next-hop)로 Serial 구간 연결을, `show ip route`로 Connected 네트워크 등록 여부를 확인한다.
 
 ### Interface 상태 확인
 
@@ -149,7 +201,25 @@ Router(config)# enable secret WORD    ← MD5 Hash 암호화 저장 (권장)
 Router(config)# enable password WORD  ← 평문 저장
 ```
 
-> Enable Secret와 Enable Password가 동시에 설정된 경우 **Enable Secret가 우선** 적용
+> Enable Secret와 Enable Password가 동시에 설정된 경우 **Enable Secret가 우선** 적용. 단, 두 Password는 서로 동일한 값으로 설정할 수 없다.
+
+> 모든 Password는 대/소문자를 구분하며 공백도 하나의 문자로 인식된다(단, 뒤쪽 공백만 인식). 대문자·소문자·숫자·특수문자를 조합하여 7자 이상 사용을 권장하며, 안전하게 사용하려면 13자 이상을 권장한다.
+
+### 예제: Console + VTY + Enable Secret 동시 설정
+
+**조건**: Router 콘솔 접속과 원격 Telnet 접속 모두 비밀번호를 요구해야 하고, Privilege Mode 진입 시에는 평문이 아닌 MD5 해시로 암호화된 비밀번호를 사용해야 한다.
+
+```
+Router(config)# line console 0
+Router(config-line)# password cisco
+Router(config-line)# login
+!
+Router(config)# line vty 0 4
+Router(config-line)# password ciscovty
+Router(config-line)# login
+!
+Router(config)# enable secret cisco123
+```
 
 ---
 

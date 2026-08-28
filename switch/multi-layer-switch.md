@@ -41,6 +41,28 @@ C       13.13.10.0 is directly connected, Loopback0
 C       13.13.12.0 is directly connected, FastEthernet0/24
 ```
 
+### 실습 예시: 여러 대의 L3 Switch를 Routed Interface로 연결
+
+> 조건: SW1 - SW2 - SW3 - R4가 각각 Routed Interface로 직접 연결되어 있고, 각 스위치는 서로의 직결 네트워크만 알고 있으면 된다(라우팅 프로토콜 없이 직결 경로만 확인).
+
+```
+# SW2 (SW1, SW3, R4와 각각 Routed Interface로 연결)
+SW2(config)# ip routing
+SW2(config)# interface loopback 0
+SW2(config-if)# ip address 13.13.20.2 255.255.255.0
+SW2(config)# interface fastethernet 0/10
+SW2(config-if)# no switchport
+SW2(config-if)# ip address 13.13.22.2 255.255.255.0
+SW2(config)# interface fastethernet 0/22
+SW2(config-if)# no switchport
+SW2(config-if)# ip address 13.13.23.2 255.255.255.0
+SW2(config)# interface fastethernet 0/24
+SW2(config-if)# no switchport
+SW2(config-if)# ip address 13.13.12.2 255.255.255.0
+```
+
+각 포트가 `no switchport`로 L3 포트가 되면서 서로 다른 서브넷으로 직결되므로, `show ip route`에는 4개의 Connected 경로가 별도로 나타난다. SW2에서 SW1(13.13.12.1) · R4(13.13.22.4) 방향은 `ping`이 성공하지만, SW1과 SW3처럼 서로 직결되지 않은 네트워크끼리는(예: SW2 → 13.13.13.3) 라우팅 프로토콜 없이는 통신되지 않는다.
+
 ---
 
 ## SVI (Switched Virtual Interface)
@@ -65,6 +87,19 @@ SW1(config-if)# ip address 13.13.12.1 255.255.255.0
 ```
 
 > ⚠️ `ip routing`을 반드시 먼저 활성화해야 SVI 간 라우팅이 가능하다
+
+### 실습 예시: PC와 Gateway(SVI)가 통신되지 않는 경우
+
+> 조건: SW1에 VLAN 11용 SVI(13.13.11.1)를 만들었는데, 내부 PC에서 Gateway(13.13.11.1)로 ping이 되지 않는다.
+
+```
+SW1(config)# interface range fa0/1 - 2
+SW1(config-if-range)# switchport mode access
+SW1(config-if-range)# switchport access vlan 11
+```
+
+- 스위치 포트는 기본적으로 **VLAN 1**에 access되어 있다. PC가 연결된 포트를 SVI와 같은 VLAN(11)으로 지정해주지 않으면, PC는 여전히 VLAN 1에 속해 있어 VLAN 11의 Gateway와 서로 다른 브로드캐스트 도메인에 있는 것과 같다.
+- 포트를 `switchport access vlan 11`로 맞춰준 뒤에야 `SW1_내부PC> ping 13.13.11.1`이 정상 응답한다.
 
 ### SVI + VTP + OSPF 통합 구성 예시
 

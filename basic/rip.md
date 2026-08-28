@@ -22,6 +22,43 @@
 
 ---
 
+## 사전 설정 (Pre-config) — 실습 토폴로지
+
+아래 RIPv1/RIPv2 설정 예시는 모두 R1-R2-R3 3대 라우터로 구성된 아래 토폴로지를 기준으로 한다.
+
+```
+                          13.13.12.0/24            13.13.23.0/24
+                 R1---------------------R2---------------------R3
+                  |                                |                                |
+         13.13.10.0/24                  13.13.20.0/24                 13.13.30.0/24
+```
+
+- R1, R2, R3 각각 Loopback 172 인터페이스에 172.16.x.x/24 대역 부여 (예: R1 = 172.16.1.1, R2 = 172.16.2.2, R3 = 172.16.3.3)
+- R1 FastEthernet 0/0 = 13.13.10.254, R2 FastEthernet 0/0 = 13.13.20.254, R3 FastEthernet 0/0 = 13.13.30.254
+- R1-R2 구간(Serial 1/0-1/1) = 13.13.12.0/24, R2-R3 구간(Serial 1/0-1/1) = 13.13.23.0/24
+- Serial 인터페이스는 encapsulation hdlc, DCE 쪽(R2)에 clock rate 64000 지정
+
+```
+! R1 기본 인터페이스 설정 예시
+hostname R1
+!
+interface loopback 172
+ ip address 172.16.1.1 255.255.255.0
+!
+interface fastethernet 0/0
+ no shutdown
+ ip address 13.13.10.254 255.255.255.0
+!
+interface serial 1/0
+ no shutdown
+ encapsulation hdlc
+ bandwidth 64
+ ip address 13.13.12.1 255.255.255.0
+!
+```
+
+---
+
 ## RIPv1 설정
 
 ```
@@ -52,6 +89,33 @@ router rip
  network 13.0.0.0
 !
 ```
+
+### debug ip rip로 본 RIPv1 업데이트 (Classful)
+
+```
+R1# debug ip rip
+RIP protocol debugging is on
+
+RIP: sending  v1 update to 255.255.255.255 via FastEthernet0/0 (13.13.1.254)
+RIP: build update entries
+      network 172.16.0.0 metric 1
+      network 13.13.2.0 metric 2
+      network 13.13.3.0 metric 3
+      network 13.13.12.0 metric 1
+      network 13.13.23.0 metric 2
+
+RIP: sending  v1 update to 255.255.255.255 via Serial1/0 (13.13.12.1)
+RIP: build update entries
+      network 172.16.0.0 metric 1
+      network 13.13.1.0 metric 1
+
+RIP: received v1 update from 13.13.12.2 on Serial1/0
+      13.13.2.0 in 1 hops
+      13.13.3.0 in 2 hops
+      13.13.23.0 in 1 hops
+```
+
+> RIPv1은 Classful이므로 업데이트 항목에 SubnetMask가 표시되지 않는다 (`network 13.13.2.0 metric 2` 형식, `/24` 표기 없음).
 
 ---
 
@@ -98,6 +162,26 @@ router rip
  passive-interface fastethernet 0/0
 !
 ```
+
+### debug ip rip로 본 auto-summary 유무 차이
+
+```
+! auto-summary 활성 상태(RIPv2 기본값)일 때
+R1# debug ip rip
+*Mar  1 00:24:28.131: RIP: sending v2 update to 224.0.0.9 via Serial1/0 (13.13.12.1)
+*Mar  1 00:24:28.135: RIP: build update entries
+*Mar  1 00:24:28.135:   13.13.10.0/24 via 0.0.0.0, metric 1, tag 0    <---- 서브넷은 그대로 광고
+*Mar  1 00:24:28.139:   172.16.0.0/16 via 0.0.0.0, metric 1, tag 0    <---- 자동요약으로 Class B 경계(172.16.0.0/16)로 뭉쳐서 광고됨
+
+! no auto-summary 적용 후
+R1# debug ip rip
+*Mar  1 00:28:41.907: RIP: sending v2 update to 224.0.0.9 via Serial1/0 (13.13.12.1)
+*Mar  1 00:28:41.911: RIP: build update entries
+*Mar  1 00:28:41.911:   13.13.10.0/24 via 0.0.0.0, metric 1, tag 0
+*Mar  1 00:28:41.915:   172.16.1.0/24 via 0.0.0.0, metric 1, tag 0    <---- 원래 서브넷 마스크(/24) 그대로 광고
+```
+
+> Distance Vector 프로토콜은 기본적으로 `auto-summary`가 동작한다. 이 기능은 네트워크 정보를 원래의 Class 경계로 요약해서 광고하므로, 불연속 서브넷(discontiguous subnet) 환경에서는 `no auto-summary`로 반드시 비활성화해야 한다.
 
 ---
 

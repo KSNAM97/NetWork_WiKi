@@ -6,10 +6,25 @@
 - PC, Server 등 **단말 장비**가 연결되는 포트
 - VLAN을 지원하지 않는 장비가 연결되는 포트
 
+**예시**: Fa0/1에 일반 PC 한 대만 연결하고 VLAN 10에 소속시켜야 하는 경우
+
 ```
 SW(config)# interface fastethernet 0/1
 SW(config-if)# switchport mode access
 SW(config-if)# switchport access vlan 10
+```
+
+정보 확인
+
+```
+SW1# show vlan brief
+VLAN Name                             Status    Ports
+---- -------------------------------- --------- -------------------------------
+1    default                          active    Fa0/3, Fa0/4, Fa0/5, Fa0/6
+                                                 Fa0/7, Fa0/8, Fa0/9, Fa0/10
+                                                 Fa0/11, Fa0/12, Fa0/13, Fa0/14
+10   VLAN0010                        active    Fa0/1
+20   VLAN0020                        active    Fa0/2
 ```
 
 ---
@@ -35,6 +50,8 @@ DTP(Dynamic Trunking Protocol) 메시지를 사용하여 Switch 간 협상으로
 |------|------|
 | `desirable` | DTP 메시지 **송수신** — 적극적으로 Trunk 협상 |
 | `auto` | DTP 메시지 **수신만** — 상대방이 desirable일 때만 Trunk |
+
+**예시**: SW1과 SW2 사이 Fa0/1을 연결하고 두 스위치가 자동으로 협상하여 Trunk가 형성되도록 해야 하는 경우
 
 ```
 SW(config)# interface fastethernet 0/1

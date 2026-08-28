@@ -39,6 +39,55 @@ Router(config)# ip route 0.0.0.0 0.0.0.0 [Next-hop IP]
    192.168.1.0/24         192.168.2.0/24         192.168.3.0/24
 ```
 
+### 사전 설정 (Pre-config) — 인터페이스 IP 할당
+
+Static Route를 설정하기 전, 먼저 각 라우터의 인터페이스에 IP를 할당하고 WAN 구간을 활성화해야 한다. LAN 구간은 PC가 첫 번째 주소, Gateway가 마지막 주소를 사용하며, WAN 구간은 HDLC 캡슐화에 대역폭 64K를 사용한다.
+
+```
+# R1
+R1(config)# interface fastethernet 0/0
+R1(config-if)# no shutdown
+R1(config-if)# ip address 192.168.1.254 255.255.255.0
+!
+R1(config)# interface serial 1/0
+R1(config-if)# no shutdown
+R1(config-if)# encapsulation hdlc
+R1(config-if)# bandwidth 64
+R1(config-if)# ip address 192.168.12.1 255.255.255.0
+
+# R2
+R2(config)# interface fastethernet 0/0
+R2(config-if)# no shutdown
+R2(config-if)# ip address 192.168.2.254 255.255.255.0
+!
+R2(config)# interface serial 1/1
+R2(config-if)# no shutdown
+R2(config-if)# encapsulation hdlc
+R2(config-if)# bandwidth 64
+R2(config-if)# clock rate 64000          ! DCE 측 — 클럭 제공
+R2(config-if)# ip address 192.168.12.2 255.255.255.0
+!
+R2(config)# interface serial 1/0
+R2(config-if)# no shutdown
+R2(config-if)# encapsulation hdlc
+R2(config-if)# bandwidth 64
+R2(config-if)# clock rate 64000
+R2(config-if)# ip address 192.168.23.2 255.255.255.0
+
+# R3
+R3(config)# interface fastethernet 0/0
+R3(config-if)# no shutdown
+R3(config-if)# ip address 192.168.3.254 255.255.255.0
+!
+R3(config)# interface serial 1/1
+R3(config-if)# no shutdown
+R3(config-if)# encapsulation hdlc
+R3(config-if)# bandwidth 64
+R3(config-if)# ip address 192.168.23.3 255.255.255.0
+```
+
+> `clock rate`는 Serial 케이블의 **DCE(Data Communication Equipment)** 측 인터페이스에서만 설정한다. Packet Tracer 등 시뮬레이터에서 DCE 쪽을 확인 후 설정해야 링크가 정상적으로 Up 된다.
+
 ### Next-hop IP 방식
 
 ```

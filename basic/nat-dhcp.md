@@ -14,6 +14,46 @@
 | B | 172.16.0.0 ~ 172.31.255.255 |
 | C | 192.168.0.0 ~ 192.168.255.255 |
 
+### 사전 설정 (Pre-config) — NAT 실습 토폴로지
+
+아래 Static NAT / Dynamic NAT(PAT) 설정 예시는 모두 다음 4대 장비 토폴로지를 기준으로 한다.
+
+```
+- R1  = PC1 (사설 IP 192.168.10.1)
+- R2  = GIT (NAT 라우터, Gateway)
+- R3  = ISP (중계 라우터)
+- R4  = RTX (Web Server Gateway, Loopback 211 = 211.241.228.4)
+
+                   S1/0       121.160.23.0/24       S1/1       S1/2       121.160.34.0/24       S1/3
+             GIT---------------------------------ISP---------------------------------RTX
+               |    23.2                                 23.3        34.3                                 34.4    |
+            Fa0/1                                                                                  Loopback 211
+               |                                                                                       |
+               |                                                                                  Web Server
+              R1 (PC)                                                                        211.241.228.4
+         192.168.10.1
+```
+
+```
+! GIT(R2) 기본 인터페이스 + RIPv2 설정 예시
+hostname GIT
+!
+interface fastethernet 0/1
+ no shutdown
+ ip address 192.168.10.254 255.255.255.0
+!
+interface serial 1/0
+ no shutdown
+ ip address 121.160.23.2 255.255.255.0
+!
+router rip
+ version 2
+ no auto-summary
+ network 121.0.0.0
+```
+
+이후 NAT 실습에서는 `Fa0/1 = ip nat inside`(사설망 방향), `Serial 1/0 = ip nat outside`(공인망 방향)로 지정한다.
+
 ### NAT 종류
 
 | 종류 | 설명 |
@@ -59,6 +99,8 @@ NAT*: s=192.168.10.1->121.160.23.2, d=211.241.228.4
 NAT*: s=211.241.228.4, d=121.160.23.2->192.168.10.1
 ```
 
+> Static NAT는 사설 IP ↔ 공인 IP가 1:1 고정 매핑이므로 **역변환(외부 → 내부)**이 가능하다. 즉 외부(RTX)에서 GIT의 공인 IP(121.160.23.2)로 Telnet을 접속하면 NAT 매핑에 의해 내부의 192.168.10.1(PC1)로 자동 연결된다. 반면 Dynamic NAT(PAT)는 Port 번호 기반 임시 매핑만 만들어지므로 외부에서 먼저 접속을 시도해도 매핑 항목이 없어 역변환이 되지 않는다 — 이 경우 외부에서 공인 IP로 Telnet을 걸면 GIT 라우터 자신에게 접속된다.
+
 ---
 
 ## Dynamic NAT (PAT / Overload)
@@ -94,6 +136,29 @@ icmp 121.160.23.2:13     192.168.10.3:13   211.241.228.4:13   211.241.228.4:13
 
 > PAT: 동일한 공인 IP에 Port 번호만 다르게 여러 사설 주소가 매핑됨
 
+### 예제: 사설 네트워크 192.168.10.0/24 전체를 PAT로 외부 연결
+
+**조건**: GIT 라우터의 Fa0/1(내부)에 물린 192.168.10.0/24 전체 대역이 Serial 1/0(외부, 121.160.23.2)을 통해 인터넷과 통신해야 한다.
+
+```
+! 1단계: 변환 대상 사설 네트워크를 ACL로 정의
+access-list 1 permit 192.168.10.0 0.0.0.255
+
+! 2단계: NAT Pool 정의 (공인 IP 1개만 사용)
+ip nat pool S_NET 121.160.23.2 121.160.23.2 netmask 255.255.255.0
+
+! 3단계: ACL + Pool을 overload(PAT)로 연결
+ip nat inside source list 1 pool S_NET overload
+
+! 4단계: 인터페이스 방향 지정
+interface fastethernet 0/1
+ ip nat inside
+interface serial 1/0
+ ip nat outside
+```
+
+192.168.10.1, .2, .3 각각의 PC가 동시에 외부(211.241.228.4)로 통신해도 `show ip nat translation`에는 공인 IP 121.160.23.2 하나에 포트 번호만 다르게(`:11`, `:12`, `:13`) 매핑되어 나타난다.
+
 ### NAT 항목 수동 삭제
 
 ```
@@ -123,7 +188,7 @@ PC나 단말기에게 IP 주소, Subnet Mask, Gateway, DNS 등을 자동으로 �
 | 단계 | 방향 | 설명 |
 |------|------|------|
 | **Discover** | Client → Broadcast | DHCP 서버 탐색 |
-| **Offer** | Server → Client | IP 주소 제안 (ARP로 중복 확인 후) |
+| **Offer** | Server → Client | IP 주소 제안 (ICMP/ARP로 해당 주소가 이미 사용 중인지 확인한 뒤 제안) |
 | **Request** | Client → Broadcast | 제안된 주소 사용 요청 |
 | **ACK** | Server → Client | 최종 승인 및 정보 전달 |
 
@@ -139,6 +204,27 @@ ip dhcp pool CCNA
  default-router 192.168.10.254        ! 게이트웨이 주소
  dns-server 192.168.10.252 192.168.10.253  ! DNS (Primary, Secondary)
  lease 10                             ! 임대 기간 (일 단위, infinite = 무제한)
+```
+
+### 예제: 예약된 IP 4개를 제외하고 DHCP 임대
+
+**조건**: 192.168.1.0/24 대역을 사용하며, Gateway는 192.168.1.254이다. 192.168.1.221-192.168.1.224는 다른 용도로 이미 예약되어 있어 DHCP로 할당되면 안 되고, DNS 서버는 168.126.63.1 / 168.126.63.2를 쓰며 임대 기간은 10일이다.
+
+```
+! R1 (DHCP Server)
+interface fastethernet 0/1
+ no shutdown
+ ip address 192.168.1.200 255.255.255.0
+!
+ip dhcp excluded-address 192.168.1.200          ! 서버 자신의 IP
+ip dhcp excluded-address 192.168.1.254          ! 게이트웨이
+ip dhcp excluded-address 192.168.1.221 192.168.1.224  ! 예약된 4개 주소
+!
+ip dhcp pool CCNA
+ network 192.168.1.0 255.255.255.0
+ default-router 192.168.1.254
+ dns-server 168.126.63.1 168.126.63.2
+ lease 10
 ```
 
 ### DHCP 클라이언트 설정

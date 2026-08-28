@@ -8,6 +8,73 @@
 
 ---
 
+## 사전 설정 (Pre-config)
+
+OSPF 실습을 위한 기본 토폴로지 — R1~R5 5대의 라우터로 구성되며, R1-R2-R3는 Frame-Relay 멀티포인트(13.13.9.0/24, Area 0)로 연결되고 R1-R3는 별도 P2P 서브인터페이스(13.13.10.0/24)로도 연결된다. 모든 LAN 인터페이스는 `bandwidth 100000`(100Mbps)으로 통일해 Cost 계산 기준을 맞춘다.
+
+- R1: Lo0 13.13.1.1/24, Fa0/0 150.1.13.1/24(R4 방향), Fa0/1 13.13.11.1/24, S1/0.123(F-R Multipoint) 13.13.9.1/24, S1/1(F-R) 13.13.10.1/24(R3 방향)
+- R2: Lo0 13.13.2.2/24, Fa0/1 13.13.12.2/24, S1/0.123(F-R Multipoint, description "OSPF Area 0") 13.13.9.2/24
+- R3: Lo0 13.13.3.3/24, Fa0/0 150.3.13.3/24(R5 방향), Fa0/1 13.13.13.3/24, S1/0.123(F-R Multipoint) 13.13.9.3/24, S1/1(F-R) 13.13.10.3/24(R1 방향)
+- R4: Lo0 13.13.4.4/24, Fa0/0 150.1.13.4/24(R1 방향), Fa0/1 13.13.14.4/24 — 별도 Area(예: Area 14)로 R1에 연결되는 Stub Area 실습용 라우터
+- R5: Lo0 13.13.5.5/24, Fa0/0 150.3.13.5/24(R3 방향), Fa0/1 13.13.15.5/24
+
+공통 초기화(`no ip domain-lookup`, `enable secret cisco`, `line con/vty password cisco`)는 모든 라우터에 적용된다.
+
+```
+! R1
+hostname R1
+!
+interface loopback 0
+ ip add 13.13.1.1 255.255.255.0
+!
+interface fastethernet0/0
+ ip add 150.1.13.1 255.255.255.0
+ no shutdown
+ bandwidth 100000
+!
+interface fastethernet0/1
+ ip add 13.13.11.1 255.255.255.0
+ no shutdown
+ bandwidth 100000
+!
+interface serial 1/0
+ no shutdown
+ encapsulation frame-relay
+ no frame-relay inverse-arp
+!
+interface serial 1/0.123 multipoint
+ frame-relay map ip 13.13.9.2 102 broadcast
+ frame-relay map ip 13.13.9.3 102 broadcast
+ ip add 13.13.9.1 255.255.255.0
+!
+interface serial 1/1
+ no shutdown
+ encapsulation frame-relay
+ no frame-relay inverse-arp
+ ip add 13.13.10.1 255.255.255.0
+ frame-relay map ip 13.13.10.3 113 broadcast
+
+! R2 — Area 0 서브인터페이스 표시
+interface serial1/0.123 multipoint
+ description ### OSPF Area 0 ###
+ ip add 13.13.9.2 255.255.255.0
+ frame-relay map ip 13.13.9.1 201 broadcast
+ frame-relay map ip 13.13.9.3 203 broadcast
+
+! R4 — 인접 Area(예: Area 14) 실습용, ASBR/Stub 시나리오에 사용
+interface fastethernet0/0
+ ip add 150.1.13.4 255.255.255.0
+ no shutdown
+ bandwidth 100000
+!
+interface fastethernet0/1
+ ip address 13.13.14.4 255.255.255.0
+ no shutdown
+ bandwidth 100000
+```
+
+---
+
 ## OSPF Area
 
 - OSPF는 Area 단위로 네트워크를 분할

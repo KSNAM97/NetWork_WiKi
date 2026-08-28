@@ -14,6 +14,190 @@
 
 ---
 
+## 사전 설정 (Pre-config) — 실습 토폴로지
+
+HSRP/VRRP 실습 전에 아래와 같은 기본 토폴로지를 구성한다. G/W1(R1)·G/W2(R3)가 내부망(200.20.2.0/24)의 이중화 게이트웨이 역할을 하고, ISP(R2)가 외부망을 대표하며, PC1·PC2는 SW1에 연결된 내부 통신 장비다.
+
+```
+                         13.13.10.0/24 (Frame-Relay)      13.13.20.0/24 (Frame-Relay)
+   G/W1 (R1) ─── Serial1/0.12 ─────── ISP (R2) ─────── Serial1/0.23 ─── G/W2 (R3)
+   200.20.2.251                                                        200.20.2.252
+        │                        Fa0/1: 13.13.12.2                        │
+        │  Fa0/1                Loopback0: 13.13.2.2                      │  Fa0/1
+        └──────────────┐                                    ┌────────────┘
+                        SW1 (200.20.2.0/24, fa1/1-5)
+                        │                          │
+                     PC1 (R4)                   PC2 (R5)
+                  200.20.2.4                  200.20.2.5
+```
+
+- **R1 = G/W1**, **R3 = G/W2**, **R2 = ISP(외부망)**, **R4·R5 = PC1·PC2**
+- G/W1은 Loopback0 = 13.13.1.1/24, G/W2는 Loopback0 = 13.13.3.3/24 — 이후 라우팅 프로토콜 실습에서 내부 루프백 네트워크로 사용
+
+### 기본 장비 설정
+
+```
+# SW1
+hostname SW1
+!
+line con 0
+ logging syn
+ exec-timeout 0 0
+ password cisco
+ login
+!
+interface range fa1/1 - 5
+ speed 100
+ duplex full
+
+# G/W1 (R1)
+hostname G/W1
+!
+enable secret cisco
+!
+interface loopback 0
+ ip address 13.13.1.1 255.255.255.0
+!
+interface fastethernet 0/1
+ ip address 200.20.2.251 255.255.255.0
+ speed 100
+ duplex full
+ no shutdown
+!
+interface serial 1/0
+ no shutdown
+ encapsulation frame-relay
+ no frame-relay inverse-arp
+!
+interface serial 1/0.12 point-to-point
+ ip address 13.13.10.1 255.255.255.0
+ frame-relay interface-dlci 102
+
+# ISP (R2, 외부망 대표)
+hostname ISP
+!
+interface loopback 0
+ ip address 13.13.2.2 255.255.255.0
+!
+interface fastethernet 0/1
+ ip address 13.13.12.2 255.255.255.0
+ no shutdown
+!
+interface serial 1/0
+ no shutdown
+ encapsulation frame-relay
+ no frame-relay inverse-arp
+!
+interface serial 1/0.12 point-to-point
+ ip address 13.13.10.2 255.255.255.0
+ frame-relay interface-dlci 201
+!
+interface serial 1/0.23 point-to-point
+ ip address 13.13.20.2 255.255.255.0
+ frame-relay interface-dlci 203
+
+# G/W2 (R3)
+hostname G/W2
+!
+interface loopback 0
+ ip address 13.13.3.3 255.255.255.0
+!
+interface fastethernet 0/1
+ ip address 200.20.2.252 255.255.255.0
+ speed 100
+ duplex full
+ no shutdown
+!
+interface serial 1/0
+ no shutdown
+ encapsulation frame-relay
+ no frame-relay inverse-arp
+!
+interface serial 1/0.23 point-to-point
+ ip address 13.13.20.3 255.255.255.0
+ frame-relay interface-dlci 302
+
+# PC1 (R4)
+hostname PC1
+!
+interface fastethernet 0/1
+ ip address 200.20.2.4 255.255.255.0
+ speed 100
+ duplex full
+ no shutdown
+!
+ip route 0.0.0.0 0.0.0.0 200.20.2.254   ← Gateway는 이후 설정할 Virtual-IP
+
+# PC2 (R5)
+hostname PC2
+!
+interface fastethernet 0/1
+ ip address 200.20.2.5 255.255.255.0
+ speed 100
+ duplex full
+ no shutdown
+!
+ip route 0.0.0.0 0.0.0.0 200.20.2.254
+```
+
+### 기본 연결 확인
+
+```
+PC1# ping 200.20.2.5      ← PC1 ---> PC2 통신
+PC1# ping 200.20.2.251    ← PC1 ---> G/W1 통신
+PC1# ping 200.20.2.252    ← PC1 ---> G/W2 통신
+
+PC2# ping 200.20.2.4      ← PC2 ---> PC1 통신
+PC2# ping 200.20.2.251    ← PC2 ---> G/W1 통신
+PC2# ping 200.20.2.252    ← PC2 ---> G/W2 통신
+```
+
+### 공중망 라우팅 (HSRP는 EIGRP, VRRP는 OSPF로 실습)
+
+FHRP 자체는 내부망(200.20.2.0/24) 이중화만 담당하므로, G/W1·G/W2가 외부(ISP, 13.13.2.0/24)와 통신하려면 별도로 라우팅 프로토콜을 구성해야 한다. 이 문서의 HSRP 실습은 **EIGRP**(AS 100), VRRP 실습은 **OSPF**(Process 1, Area 0)로 G/W1-ISP-G/W2 구간을 미리 연결한다.
+
+```
+# G/W1 — EIGRP 예시
+router eigrp 100
+ no auto-summary
+ passive-interface default
+ no passive-interface serial 1/0.12
+ network 13.13.1.0 0.0.0.255
+ network 13.13.10.0 0.0.0.255
+ network 200.20.2.0
+!
+# G/W2 — EIGRP 예시
+router eigrp 100
+ no auto-summary
+ passive-interface default
+ no passive-interface serial 1/0.23
+ network 13.13.3.0 0.0.0.255
+ network 13.13.20.0 0.0.0.255
+ network 200.20.2.0
+!
+# ISP — EIGRP 예시
+router eigrp 100
+ no auto-summary
+ passive-interface default
+ no passive-interface serial 1/0.12
+ no passive-interface serial 1/0.23
+ network 13.13.2.0 0.0.0.255
+ network 13.13.12.0 0.0.0.255
+ network 13.13.10.0 0.0.0.255
+ network 13.13.20.0 0.0.0.255
+```
+
+```
+G/W1# show ip eigrp neighbor      ← 인접성 1개(ISP) 확인
+G/W1# show ip route
+D       13.13.2.0 [90/2297856] via 13.13.10.2, Serial1/0.12   ← ISP 네트워크 확인
+G/W1# ping 13.13.2.2               ← G/W1 ---> 외부 네트워크
+```
+
+이 기본 토폴로지와 라우팅이 정상 동작하는 것을 확인한 뒤, 아래 HSRP/VRRP 설정으로 내부망(200.20.2.0/24)의 Gateway 이중화를 구성한다.
+
+---
+
 ## HSRP (Hot Standby Router Protocol)
 
 ### 동작 원리

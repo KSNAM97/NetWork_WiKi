@@ -142,6 +142,111 @@ R1(config)# line vty 0 4
 R1(config-line)# login local    ! 로컬 username/password로 인증
 ```
 
+> 기본 상태에서는 Privilege Level 15를 제외한 나머지 Level(2-14)은 실제로 사용할 수 있는 명령어가 거의 동일하거나 제한적이다. `privilege 3`, `privilege 5`처럼 Level만 다르게 계정을 만든다고 자동으로 서로 다른 권한이 부여되는 것은 아니며, 각 Level별로 실행 가능한 명령어를 관리자가 직접 지정해야 한다.
+
+### Level별 명령어 권한 세분화 (`privilege` 명령어)
+
+관리자 계정 또는 Console로 접속하여 특정 Privilege Level에 명령어 실행 권한을 개별적으로 부여할 수 있다.
+
+```
+! guest(Level 2) 계정이 Global Mode(configure terminal)로 진입 가능하도록 허용
+R1(config)# privilege exec level 2 configure
+R1(config)# privilege exec level 2 configure terminal
+
+! Global Mode에서 interface 명령어 사용 허용
+R1(config)# privilege configure level 2 interface
+
+! Interface Mode에서 ip address 명령어 사용 허용
+R1(config)# privilege interface level 2 ip
+R1(config)# privilege interface level 2 ip address
+
+! Global Mode에서 router rip 및 하위 명령어(version, network) 사용 허용
+R1(config)# privilege configure level 2 router
+R1(config)# privilege router level 2 version
+R1(config)# privilege router level 2 network
+```
+
+- 권한을 부여하기 전에는 `% Invalid input detected at '^' marker.` 오류로 해당 명령어가 차단된다.
+- **상위 Level은 하위 Level의 권한을 그대로 사용할 수 있다** — 예를 들어 Level 3 계정은 Level 2에 부여된 권한(configure, interface, router rip 등)을 모두 사용 가능하다.
+
+### Autocommand (자동 명령 실행)
+
+특정 계정으로 Telnet/SSH 접속 시 사용자가 직접 명령어를 입력하지 않아도 미리 지정한 명령어가 로그인 직후 자동 실행되고, 실행이 끝나면 세션이 자동 종료되는 기능. 특정 사용자에게 전체 CLI 권한을 주지 않고 정해진 명령어 하나만 실행시킬 때 사용한다.
+
+```
+! R1
+username admin privilege 15 password 0 cisco
+username guest privilege 2 password 0 guest1234
+username guest2 privilege 3 password 0 guest4321
+username guest2 autocommand show ip route
+!
+line vty 0 4
+ login local
+```
+
+guest2 계정으로 Telnet 접속하면 로그인 직후 `show ip route` 결과가 출력되고 곧바로 `[Connection to 1.1.1.1 closed by foreign host]`로 세션이 끊어진다.
+
+### Autocommand Menu (메뉴 기반 제한 접속)
+
+일반 CLI 대신 관리자가 미리 구성한 Menu 화면을 보여주고, 사용자는 번호(Key)만 선택해 정해진 명령어만 실행하는 기능. `menu` 명령어로 Menu Text(화면에 표시될 항목)와 Menu Command(선택 시 실행될 실제 명령어)를 구성한 뒤 계정의 autocommand에 연결한다.
+
+```
+R1(config)# menu sol text 1 Routing-Table
+R1(config)# menu sol command 1 show ip route
+R1(config)# menu sol text 2 Routing-table-eigrp
+R1(config)# menu sol command 2 show ip route eigrp
+R1(config)# menu sol text 3 TCP-Brief
+R1(config)# menu sol command 3 show tcp brief
+R1(config)# menu sol text 4 Interface-Brief
+R1(config)# menu sol command 4 show ip interface brief
+R1(config)# menu sol text 5 R2_Loopback_ICMP
+R1(config)# menu sol command 5 ping 2.2.2.2
+R1(config)# menu sol text 6 EXIT
+R1(config)# menu sol command 6 exit
+!
+R1(config)# username guest3 privilege 4 password guest4444
+R1(config)# username guest3 autocommand menu sol
+!
+R1(config)# line vty 0 4
+R1(config-line)# login local
+```
+
+### Banner 설정
+
+접속 시 경고/안내 문구(무단 접속 금지, 관리자 연락처 등)를 출력하는 기능. Telnet, SSH, Console, AUX 접속 모두에 적용된다.
+
+```
+R1(config)# banner motd *
+Enter TEXT message.  End with the character '*'.
+##############################################
+                WARNING
+##############################################
+Name : Ryu Chang Wan
+Phone : 010-1234-5678
+##############################################
+*
+```
+
+접속 시 `User Access Verification` 프롬프트보다 먼저 배너 문구가 출력된다.
+
+### Telnet Port 변경 (rotary)
+
+VTY Line의 `rotary` 기능을 사용하면 기본 TCP 23번이 아닌 다른 포트로 Telnet 접속을 받도록 변경할 수 있다. `rotary`는 TCP 3000번을 기준으로 동작 — `rotary 40`이면 TCP 3040번 포트가 된다.
+
+```
+! TCP 3040번 포트로만 Telnet 접속을 허용
+username admin privilege 15 password cisco
+!
+access-list 101 permit tcp any any eq 3040
+!
+line vty 0 4
+ login local
+ rotary 40
+ access-class 101 in
+```
+
+확인: `R3# telnet 1.1.1.1 3040`처럼 포트 번호를 명시해야 접속되며, 기본 포트(23)로는 연결되지 않는다.
+
 **예시 문제**: R1의 VTY 라인에는 아무런 접속 제한이 없어서 아무 IP에서나 Telnet 접속을 시도할 수 있다. 관리 목적으로 오직 3.3.3.3(관리자 PC/Loopback)에서만 접속을 허용하고 나머지는 모두 거부하려면 어떻게 해야 하는가?
 
 ```
@@ -279,7 +384,7 @@ ip ssh server algorithm mac hmac-sha2-256 hmac-sha2-512
 ntp server 211.241.228.2
 
 ! IOS XE 17.x 추가 옵션 — 폴링 간격 제어
-ntp server 211.241.228.2 minpoll 4 maxpoll 10   ! poll 간격 2^4~2^10초
+ntp server 211.241.228.2 minpoll 4 maxpoll 10   ! poll 간격 2^4-2^10초
 ntp server 211.241.228.2 prefer                  ! 우선 서버 지정
 
 ! 큰 시간 변동 방지 (클럭 급변 차단)

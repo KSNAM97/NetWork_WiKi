@@ -4,6 +4,75 @@
 
 ---
 
+## 사전 설정 (Pre-config)
+
+경로 필터링 실습을 위한 기본 토폴로지 — R1~R5 5대의 라우터로 구성되며, R1-R2-R3는 Frame-Relay 멀티포인트(13.13.9.0/24)로 연결되고 R1-R3는 별도 P2P 서브인터페이스(13.13.10.0/24)로도 연결된다. R4, R5는 EIGRP 100으로 다수의 Loopback 서브넷(필터링 대상 네트워크)을 광고한다.
+
+- R1: Lo0 13.13.1.1/24, Fa0/0 150.1.13.1/24(R4 방향), Fa0/1 13.13.11.1/24, S1/0.123(F-R Multipoint) 13.13.9.1/24, S1/1(F-R) 13.13.10.1/24(R3 방향)
+- R2: Lo0 13.13.2.2/24, Fa0/1 13.13.12.2/24, S1/0.123(F-R Multipoint) 13.13.9.2/24
+- R3: Lo0 13.13.3.3/24, Fa0/0 150.3.13.3/24(R5 방향), Fa0/1 13.13.13.3/24, S1/0.123(F-R Multipoint) 13.13.9.3/24, S1/1(F-R) 13.13.10.3/24(R1 방향)
+- R4: Lo0 13.13.4.4/24, Lo150 150.100.1.4/24, Lo10(10.1.0-3.4/24 secondary), Lo172(172.16.4-7.4/24 secondary), Lo192(192.168.8-11.4/24 secondary), Lo199(199.171.1-16.4/24 다중 secondary), Fa0/0 150.1.13.4/24(R1 방향), Fa0/1 13.13.14.4/24 — `router eigrp 100` / `no auto-summary` / 각 대역 `network` 광고
+- R5: Lo0 13.13.5.5/24, Lo4 4.1.1.4/24, Lo128(128.28.2.4, 128.128.1.4 secondary), Lo198(198.198.x.4, 198.2.x.4, 198.1.1.5/30 다중 secondary), Fa0/0 150.3.13.5/24(R3 방향), Fa0/1 13.13.15.5/24 — `router eigrp 100` / `no auto-summary` / 각 대역 `network` 광고
+
+공통 초기화(`no ip domain-lookup`, `enable secret cisco`, `line con/vty password cisco`)는 모든 라우터에 적용된다.
+
+```
+! R4 — 필터링 대상 Loopback 대역 (10/172.16/192.168/199.171)
+interface loopback 150
+ ip address 150.100.1.4 255.255.255.0
+!
+interface loopback 10
+ ip address 10.1.0.4  255.255.255.0
+ ip address 10.1.1.4  255.255.255.0 secondary
+ ip address 10.1.2.4  255.255.255.0 secondary
+ ip address 10.1.3.4  255.255.255.0 secondary
+!
+interface loopback 172
+ ip address 172.16.4.4  255.255.255.0
+ ip address 172.16.5.4  255.255.255.0 secondary
+ ip address 172.16.6.4  255.255.255.0 secondary
+ ip address 172.16.7.4  255.255.255.0 secondary
+!
+interface loopback 192
+ ip address 192.168.8.4  255.255.255.0
+ ip address 192.168.9.4  255.255.255.0 secondary
+ ip address 192.168.10.4  255.255.255.0 secondary
+ ip address 192.168.11.4  255.255.255.0 secondary
+!
+router eigrp 100
+ no auto-summary
+ network 10.1.0.0  0.0.3.255
+ network 172.16.4.0  0.0.3.255
+ network 192.168.8.0  0.0.3.255
+ network 199.171.0.0  0.0.15.255
+ network 199.171.16.0  0.0.0.255
+
+! R5 — 필터링 대상 Loopback 대역
+interface loopback 4
+ ip address 4.1.1.4 255.255.255.0
+!
+interface loopback 128
+ ip address 128.28.2.4 255.255.255.0 secondary
+ ip address 128.128.1.4 255.255.255.0
+!
+router eigrp 100
+ no auto-summary
+ network 4.1.1.0  0.0.0.255
+ network 128.28.2.0  0.0.0.255
+ network 128.128.1.0  0.0.0.255
+ network 198.1.1.0  0.0.0.255
+ network 198.2.1.0  0.0.0.255
+ network 198.2.3.0  0.0.0.255
+ network 198.2.5.0  0.0.0.255
+ network 198.198.1.0  0.0.0.255
+ network 198.198.4.0  0.0.0.255
+ network 198.198.5.0  0.0.0.255
+ network 198.198.21.0  0.0.0.255
+ network 198.198.22.0  0.0.0.255
+```
+
+---
+
 ## 1. Distribute-list
 
 ACL을 기반으로 라우팅 업데이트를 필터링

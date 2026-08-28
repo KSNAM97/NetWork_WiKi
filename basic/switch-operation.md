@@ -35,6 +35,23 @@
 - 장비 이동이나 포트 변경에 대응하기 위한 기능
 - **Cisco 스위치 기본 Aging Time: 300초 (5분)**
 
+### 예시: MAC Address Table 학습 과정
+
+**조건**: SW1의 MAC Address Table이 비어있는 상태에서 Fa0/1에 연결된 PC-A가 Fa0/3에 연결된 PC-B에게 처음으로 프레임을 보낸다.
+
+```
+! 1) 목적지 MAC을 모르므로 Fa0/1을 제외한 모든 포트로 Flooding
+! 2) 동시에 출발지 MAC(PC-A)을 Fa0/1에 Learning
+! 3) PC-B가 응답하면 출발지 MAC(PC-B)을 Fa0/3에 Learning
+! 4) 이후 PC-A ↔ PC-B 프레임은 서로의 포트로만 Forwarding
+
+SW1# show mac address-table
+Vlan    Mac Address       Type        Ports
+----    -----------       ----        -----
+1       aaaa.aaaa.aaaa    DYNAMIC     Fa0/1
+1       bbbb.bbbb.bbbb    DYNAMIC     Fa0/3
+```
+
 ---
 
 ## MAC Address Table 흐름
@@ -404,6 +421,8 @@ SW# show vtp status
 > Root Bridge 완전 장애 복구 시: Blocking(Max-age 20s) → Listening(15s) → Learning(15s) → Forwarding = **총 50초**
 
 ### STP 설정 (Priority로 Root Bridge 지정)
+
+**예시**: 네트워크 설계상 SW2를 VLAN 10, 20, 30, 40의 Root Bridge로 지정해야 하는 경우, priority를 4096(가장 낮은 배수 값)으로 낮춰 강제로 선출되도록 한다.
 
 ```
 ! VLAN별 Root Bridge 지정 — priority는 4096의 배수

@@ -60,6 +60,22 @@ R1(config)# interface fastethernet 0/0
 R1(config-if)# crypto map CMAP
 ```
 
+### 사전 설정 (Pre-config) — 실습 토폴로지
+
+본사 GIT-A(R1)와 지사 GIT-B(R2)가 각각 Frame-Relay로 ISP 라우터(R3~R6, 4개 구간)에 연결되어 공인망을 경유하는 구조:
+
+```
+PC1 -- GIT-A(R1, Fa0/0: 100.100.10.254) -- S1/0.10(121.160.10.1) --
+   -- ISP-1(R3) -- ISP-2(R4) -- ISP-3(R5) -- ISP-4(R6) --
+-- S1/0.20(121.160.20.2) -- GIT-B(R2, Fa0/0: 200.200.20.254) -- PC2
+
+GIT-A 내부망: 100.100.10.0/24 (PC1)
+GIT-B 내부망: 200.200.20.0/24 (PC2)
+```
+
+- R1(GIT-A)-R2(GIT-B) 구간은 R3-R6(ISP-1-4) 4개의 라우터를 거쳐 공인 IP로 통신
+- 기본 상태에서는 ISP 구간(R3-R6) 어디서든 패킷 캡처 시 평문 그대로 노출됨 → IPsec으로 GIT-A↔GIT-B 트래픽만 암호화 대상으로 지정
+
 **예시 문제**: 본사(GIT-A, 100.100.10.0/24)와 지사(GIT-B, 200.200.20.0/24)가 공인망(ISP 4개 구간)을 통해 통신하는데, 중간 ISP 구간에서 트래픽이 그대로 노출되어 캡처가 가능한 상태다. 두 대역 간 트래픽만 IPsec으로 암호화하고, 조건은 Phase 1 = 사전공유키/3DES/MD5/DH group 2, Phase 2 = ESP/AES/SHA-HMAC로 지정하려면?
 
 ```
@@ -179,6 +195,37 @@ R# show ip nhrp
 
 IOS 12.x-15.x 시대의 **Stateful Firewall** 기능 — Layer 7까지 검사하여 동적 ACL 구멍 생성
 
+### 사전 개념
+
+| 구분 | 설명 |
+|------|------|
+| **Firewall** | IP/Port 기반으로 외부 침입을 제어하는 네트워크 보안 시스템 |
+| **IDS** (침입 탐지) | 트래픽을 감시해 공격/이상 징후를 탐지 → 로그 기록·경고만 수행, 직접 차단 X (NIDS: 네트워크 감시, HIDS: 호스트 내부 감시) |
+| **IPS** (침입 방지) | 트래픽 경로 중간에 위치해 공격 탐지 시 패킷 폐기, IP 차단, 세션 강제 종료 등 **직접 차단**까지 수행 |
+| **Stateful 방화벽** | 외부發 트래픽은 기본 차단하되, 내부에서 시작된 트래픽의 **응답**은 State Table로 자동 허용 |
+
+CBAC은 HTTP/FTP/SNMP 등 상위 프로토콜(Application)까지 인식하는 **Dynamic Traffic Filtering** 기반 Stateful 방화벽이다.
+
+### CBAC 동작 방식
+
+- 지정된(보호 대상) 트래픽에 대해서만 검사를 실시 — 라우터 자신이 송수신하는 트래픽에는 적용 안 됨
+- 트래픽이 나갈 때 State Table에 세션이 등록되고, 돌아오는 응답 트래픽은 State Table 매치 시 자동 허용
+- State Table에 매치되지 않는 트래픽은 인터페이스에 걸린 일반 ACL의 적용을 받음
+- IPsec처럼 **암호화된 패킷은 검사 불가**, 모든 애플리케이션을 지원하지 않으므로 필요 시 특정 앱은 CBAC 대상에서 제외
+
+**CBAC vs Reflexive ACL**
+
+| 구분 | Reflexive ACL | CBAC |
+|------|---------------|------|
+| 검사 계층 | L3/L4만 | **L7까지 검사** |
+| 경고/감사(Alert·Audit) | 미지원 | **지원** |
+| 공통점 | 내부→외부 트래픽 허용, 외부→내부는 차단, 응답 트래픽만 State 기반 허용 | 동일 |
+
+### 경고(Alert) / 감사(Audit)
+
+- **경고(Alert)**: 비정상 동작·공격·정책 위반 탐지 시 관리자에게 즉시 통보 (화면 메시지, Syslog, SNMP Trap 등)
+- **감사(Audit, `audit-trail`)**: 모든 세션의 출발지/목적지 IP·Port·시간 정보를 Syslog로 기록해 사후 추적 가능하게 함
+
 - `ip inspect`: 세션 State Table 관리
 - TCP 세션: 3600초, UDP: 30초, ICMP: 10초 타임아웃
 - Half-open 연결 임계값으로 DoS 방어
@@ -207,6 +254,29 @@ ip inspect max-incomplete low  400   ! 해소 임계값
 R# show ip inspect session      ! 현재 활성 세션 State Table
 R# show ip inspect config       ! CBAC 규칙 목록
 R# show ip inspect all          ! 세션 + 규칙 + 통계 통합 확인
+```
+
+### 세션 생성 확인 예시
+
+내부(R2, 13.13.2.2)에서 외부(13.13.5.5)로 Ping/Telnet 시 State Table에 세션이 등록되는 과정:
+
+```
+! 인터페이스 적용 (IN 방향에서 들어와 OUT으로 나가는 방향 기준)
+ip access-group IN<---OUT in
+ip inspect IN--->OUT out
+
+! R2에서 트래픽 발생
+R2# ping 13.13.5.5 source 13.13.2.2
+
+! Audit-trail 로그 (세션 시작)
+*Mar 1 00:26:19.919: %FW-6-SESS_AUDIT_TRAIL_START: Start icmp session: initiator (13.13.2.2:8) -- responder (13.13.5.5:0)
+*Mar 1 00:27:29.795: %FW-6-SESS_AUDIT_TRAIL_START: Start tcp session: initiator (13.13.2.2:58499) -- responder (13.13.5.5:23)
+
+! State Table 확인
+R3# show ip inspect session
+Established Sessions
+ Session 67089B28 (13.13.2.2:8)=>(13.13.5.5:0) icmp SIS_OPEN      <---- ICMP 통신 후 Session 연결 확인
+ Session 67089B28 (13.13.2.2:58499)=>(13.13.5.5:23) tcp SIS_OPEN  <---- Telnet 연결 후 Session 연결 확인
 ```
 
 > ⚠️ IOS XE 16.x 이상에서는 CBAC 대신 **Zone-Based Policy Firewall(ZBF)** 사용 권장

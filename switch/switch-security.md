@@ -57,6 +57,22 @@ Last Source Address : 00D0.BC6D.42E3:1
 Security Violation Count: 0
 ```
 
+### 실습 예시: Violation 모드를 shutdown에서 restrict로 변경
+
+> 조건: fa0/1, fa0/2, fa0/3, fa0/20에 이미 shutdown 모드로 Port Security가 설정되어 있다. 이제 위반 시 포트를 내려버리지 않고 로그만 남기도록 정책을 바꿔야 한다.
+
+```
+SW1(config)# interface fastethernet 0/1
+SW1(config-if)# switchport port-security violation restrict
+SW1(config-if)# switchport port-security
+!
+SW1(config)# interface fastethernet 0/2
+SW1(config-if)# switchport port-security violation restrict
+SW1(config-if)# switchport port-security
+```
+
+MAC 주소나 maximum 값은 그대로 두고 `violation` 모드만 restrict로 바꾸면, 이후 등록되지 않은 MAC이 들어와도 포트는 살아있고 `show port-security`의 SecurityViolation 카운터만 증가한다.
+
 ### err-disable 해제
 
 ```
@@ -114,6 +130,22 @@ SW(config-if)# storm-control broadcast level 30
 SW(config-if)# storm-control action shutdown
 ```
 
+### 실습 예시: Unicast 트래픽 기준 err-disable + 자동 복구
+
+> 조건: SW2의 fa0/23으로 들어오는 Unicast 트래픽 때문에 CPU 소모율이 1% 이상 올라가면 해당 포트를 err-disable로 전환하고, 1분 뒤 자동으로 복구되어야 한다.
+
+```
+SW2(config)# interface fastethernet 0/23
+SW2(config-if)# storm-control unicast level 1
+SW2(config-if)# storm-control action shutdown
+SW2(config-if)# exit
+!
+SW2(config)# errdisable recovery cause storm-control
+SW2(config)# errdisable recovery interval 60
+```
+
+`ping ... repeat 1000 size 1000` 처럼 대량의 Unicast 트래픽을 흘리면 fa0/23이 즉시 err-disable로 전환되는 것을 `show storm-control unicast`와 `show interface fa0/23 status`로 확인할 수 있고, 60초 후 별도 조작 없이 포트가 다시 살아난다.
+
 ### err-disable 자동 복구
 
 ```
@@ -162,6 +194,17 @@ Source Ports    :
     Both        : Fa0/1
 Destination Ports: Fa0/20
 ```
+
+### 실습 예시: PC 트래픽을 Wireshark로 확인
+
+> 조건: Fa0/1에 연결된 PC(192.168.1.100)의 송수신 트래픽을 Fa0/20에 연결된 Monitoring PC에서 Wireshark로 그대로 확인해야 한다.
+
+```
+SW1(config)# monitor session 1 source interface fastethernet 0/1 both
+SW1(config)# monitor session 1 destination interface fastethernet 0/20
+```
+
+이 상태에서 PC에서 `ping`이나 `telnet`을 실행하면, Fa0/1과는 직접 연결되어 있지 않은 Fa0/20의 Monitoring PC에서도 Wireshark로 그 트래픽이 그대로 캡처된다 — SPAN 목적지 포트는 정상적인 통신 포트가 아니라 오직 복사된 트래픽을 받는 용도로만 쓰인다.
 
 ---
 

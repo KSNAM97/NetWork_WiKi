@@ -110,6 +110,121 @@ SW# show dtp interface fa0/24
 
 ---
 
+## Allowed VLAN 설정 (`switchport trunk allowed vlan`)
+
+Switch 간 Trunk로 연결하면 기본값으로 해당 Switch가 지원하는 **모든 VLAN(1-4094)**이 Forwarding된다. 특정 VLAN만 허용하거나 특정 VLAN을 제외한 나머지를 허용하려면 `allowed` 명령어를 사용한다.
+
+```
+interface fa 0/x
+ switchport trunk encapsulation [dot1q | isl]
+ switchport mode trunk
+ switchport trunk allowed vlan all   ! Default로 Enable
+```
+
+**예시 1**: SW1-SW2 구간에서는 VLAN 1,10,20,30만 사용 중이다. 현재 사용하는 VLAN만 Forwarding되도록 제한.
+
+```
+! SW1, SW2
+vlan 10,20,30
+!
+interface fa 0/23
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 1,10,20,30
+```
+
+```
+SW1# show interface trunk    [Allowed 설정 전]
+
+Port        Mode         Encapsulation  Status        Native vlan
+Fa0/23      on           802.1q         trunking      1
+
+Port        Vlans allowed on trunk
+Fa0/23      1-4094
+
+SW1# show interface trunk    [Allowed 설정 후]
+
+Port        Mode         Encapsulation  Status        Native vlan
+Fa0/23      on           802.1q         trunking      1
+
+Port        Vlans allowed on trunk
+Fa0/23      1,10,20,30   <--- 설정 후 VLAN 1,10,20,30으로 제한
+```
+
+**예시 2**: VLAN 40을 추가로 사용해야 한다. 기존 허용 VLAN에 40을 추가.
+
+```
+! SW1, SW2
+interface fa 0/23
+ switchport trunk allowed vlan add 40
+```
+
+```
+SW1# show interface trunk
+
+Port        Mode         Encapsulation  Status        Native vlan
+Fa0/23      on           802.1q         trunking      1
+
+Port        Vlans allowed on trunk
+Fa0/23      1,10,20,30,40   <--- 기존 허용 VLAN에 40이 추가
+```
+
+**예시 3**: VLAN 10을 더 이상 사용하지 않는다. 허용 목록에서 VLAN 10을 제거.
+
+```
+! SW1, SW2
+interface fa 0/23
+ switchport trunk allowed vlan remove 10
+```
+
+```
+SW1# show interface trunk
+
+Port        Mode         Encapsulation  Status        Native vlan
+Fa0/23      on           802.1q         trunking      1
+
+Port        Vlans allowed on trunk
+Fa0/23      1,20,30,40   <--- 허용 VLAN 중 VLAN 10이 삭제
+```
+
+**예시 4**: VLAN 100을 제외한 나머지 모든 VLAN을 Forwarding한다.
+
+```
+! SW2, SW3
+interface fa 0/21
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 1-99,101-4094
+
+           ------ OR (동일 결과) -------
+
+interface fa 0/21
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan except 100
+```
+
+```
+SW2# show interfaces trunk
+
+Port        Mode         Encapsulation  Status        Native vlan
+Fa0/21      on           802.1q         trunking      1
+Fa0/23      on           802.1q         trunking      1
+
+Port        Vlans allowed on trunk
+Fa0/21      1-99,101-4094
+Fa0/23      1,20,30,40
+```
+
+| 옵션 | 동작 |
+|------|------|
+| `allowed vlan <list>` | 목록으로 지정한 VLAN만 허용 (기존 목록 전체 교체) |
+| `allowed vlan add <list>` | 기존 허용 목록에 VLAN 추가 |
+| `allowed vlan remove <list>` | 기존 허용 목록에서 VLAN 제거 |
+| `allowed vlan except <list>` | 지정한 VLAN을 제외한 나머지 전부 허용 |
+
+---
+
 ## IOS XE 16.x / 17.x 최신 트렌드
 
 ### Trunk 기본 동작 변화 (`IOS XE 16.x+`)

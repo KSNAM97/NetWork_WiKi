@@ -4,10 +4,79 @@
 
 ---
 
+## 사전 설정 (Pre-config)
+
+ACL 실습을 위한 기본 토폴로지 — R1~R5 5대의 라우터로 구성되며, R1-R2-R3는 Frame-Relay 멀티포인트(13.13.9.0/24)로 연결되고 R1-R3는 별도 P2P 서브인터페이스(13.13.10.0/24)로도 연결된다. 전체가 **RIPv2 단일 도메인**으로 통일되며, R2/R4/R5에는 ACL 테스트용 Lo100(100.100.x.x/24), Lo200(200.200.x.x/24)가 추가된다.
+
+- R1: Lo0 13.13.1.1/24, Fa0/0 150.1.13.1/24(R4 방향), Fa0/1 13.13.11.1/24, S1/0.123(F-R Multipoint) 13.13.9.1/24, S1/1(F-R) 13.13.10.1/24(R3 방향) — `router rip` / `version 2` / `no auto-summary` / `network 13.0.0.0` / `network 150.1.0.0`
+- R2: Lo0 13.13.2.2/24, Lo100 100.100.2.2/24, Lo200 200.200.2.2/24, Fa0/1 13.13.12.2/24, S1/0.123(F-R Multipoint) 13.13.9.2/24 — `network 13.0.0.0` / `network 100.0.0.0` / `network 200.200.2.0`
+- R3: Lo0 13.13.3.3/24, Fa0/0 150.3.13.1/24(R5 방향), Fa0/1 13.13.13.3/24, S1/0.123(F-R Multipoint) 13.13.9.3/24, S1/1(F-R) 13.13.10.3/24(R1 방향) — `network 13.0.0.0` / `network 150.3.0.0`
+- R4: Lo0 13.13.4.4/24, Lo100 100.100.4.4/24, Lo200 200.200.4.4/24, Fa0/0 150.1.13.4/24(R1 방향), Fa0/1 13.13.14.4/24 — `network 13.0.0.0` / `network 150.1.0.0` / `network 100.0.0.0` / `network 200.200.4.0`
+- R5: Lo0 13.13.5.5/24, Lo100 100.100.5.5/24, Lo200 200.200.5.5/24, Fa0/0 150.3.13.5/24(R3 방향), Fa0/1 13.13.15.5/24 — `network 13.0.0.0` / `network 150.3.0.0` / `network 100.0.0.0` / `network 200.200.5.0`
+
+모든 LAN 인터페이스는 `bandwidth 100000`으로 통일되고, 공통 초기화(`no ip domain-lookup`, `enable secret cisco`, `line con/vty password cisco`)가 적용된다.
+
+```
+! R1
+hostname R1
+!
+interface lo 0
+ ip add 13.13.1.1 255.255.255.0
+!
+interface fastethernet0/0
+ ip add 150.1.13.1 255.255.255.0
+ no shutdown
+ bandwidth 100000
+!
+interface fastethernet0/1
+ ip add 13.13.11.1 255.255.255.0
+ no shutdown
+ bandwidth 100000
+!
+interface serial1/0
+ no shutdown
+ encapsulation frame-relay
+ no frame-relay inverse-arp
+!
+interface serial1/0.123 multipoint
+ ip add 13.13.9.1 255.255.255.0
+ frame-relay map ip 13.13.9.2 102 broadcast
+ frame-relay map ip 13.13.9.3 102 broadcast
+!
+interface serial1/1
+ no shutdown
+ encapsulation frame-relay
+ no frame-relay inverse-arp
+ ip add 13.13.10.1 255.255.255.0
+ frame-relay map ip 13.13.10.3 113 broadcast
+!
+router rip
+ version 2
+ no auto-summary
+ network 13.0.0.0
+ network 150.1.0.0
+
+! R2/R4/R5 — ACL 테스트용 Loopback (예: R2)
+interface lo 100
+ ip add 100.100.2.2 255.255.255.0
+!
+interface lo 200
+ ip add 200.200.2.2 255.255.255.0
+!
+router rip
+ version 2
+ no auto-summary
+ network 13.0.0.0
+ network 100.0.0.0
+ network 200.200.2.0
+```
+
+---
+
 ## Standard ACL
 
 - **출발지 IP 주소**만을 기준으로 필터링
-- ACL 번호: **1 ~ 99**, 1300 ~ 1999
+- ACL 번호: **1-99**, 1300-1999
 
 ```
 Router(config)# access-list [1-99] permit/deny [Source-IP] [Wildcard]
@@ -31,7 +100,7 @@ R1(config-if)# ip access-group 10 in
 ## Extended ACL
 
 - **출발지 IP, 목적지 IP, Protocol, Port** 번호를 기준으로 필터링
-- ACL 번호: **100 ~ 199**, 2000 ~ 2699
+- ACL 번호: **100-199**, 2000-2699
 
 ```
 Router(config)# access-list [100-199] permit/deny [Protocol] [Src-IP] [Wildcard] [Dst-IP] [Wildcard] [eq Port]
